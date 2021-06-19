@@ -1,5 +1,6 @@
 package main;
 
+import "core:runtime";
 import "core:fmt";
 import "core:os";
 import "core:strings";
@@ -59,7 +60,9 @@ resizeDIBSection :: proc(width, height: i32) {
     
 }
 
-mainWindowProc :: proc(window: winapi.HWnd, message: u32, wParam: winapi.WParam, lParam: winapi.LParam) -> (winapi.LResult) {
+mainWindowProc :: proc "std" (window: winapi.HWnd, message: u32, wParam: winapi.WParam, lParam: winapi.LParam) -> (winapi.LResult) {
+    context = runtime.default_context();
+
     using winapi;
     result : LResult = 0;
     msg := WindowMessage(message);

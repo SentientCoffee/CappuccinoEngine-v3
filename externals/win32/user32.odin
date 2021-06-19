@@ -6,7 +6,7 @@ foreign import "system:user32.lib";
 // Types
 // -----------------------------------------------------------------------------------
 
-WndProc :: distinct #type proc (HWnd, u32, WParam, LParam) -> LResult;
+WndProc :: distinct #type proc "std" (HWnd, u32, WParam, LParam) -> LResult;
 
 // -----------------------------------------------------------------------------------
 // Enums
