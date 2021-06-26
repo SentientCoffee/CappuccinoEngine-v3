@@ -21,5 +21,8 @@ if not "%1"=="dbg" (
     odin run src\main.odin %collections% -out:"build\%dir%\%exe_name%.exe" -opt:%level%
 ) else (
     odin build src\main.odin %collections% -out:"build\%dir%\%exe_name%.exe" -opt:%level% -debug
+    pushd .
+    call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat" x64
+    popd
     devenv "build\%dir%\%exe_name%.exe"
 )

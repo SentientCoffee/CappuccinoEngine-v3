@@ -6,13 +6,13 @@ foreign import "system:user32.lib";
 // Types
 // -----------------------------------------------------------------------------------
 
-WndProc :: distinct #type proc (HWnd, u32, WParam, LParam) -> LResult;
+WndProc :: distinct #type proc "std" (HWnd, u32, WParam, LParam) -> LResult;
 
 // -----------------------------------------------------------------------------------
 // Enums
 // -----------------------------------------------------------------------------------
 
-CW :: enum i32 {
+CreateWindow :: enum i32 {
     UseDefault = -0x8000_0000,
 }
 
@@ -129,7 +129,7 @@ WndClassExW :: struct {
 }
 
 // -----------------------------------------------------------------------------------
-// Procedures
+// Overloads
 // -----------------------------------------------------------------------------------
 
 beginPaint       :: proc{ wBeginPaint       };
@@ -145,6 +145,7 @@ getMessage       :: proc{       getMessageA };
 registerClass    :: proc{    registerClassA, registerClassW, registerClassExA, registerClassExW };
 
 // -----------------------------------------------------------------------------------
+// Procedures
 // -----------------------------------------------------------------------------------
 
 createWindowA :: proc(

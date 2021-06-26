@@ -2,18 +2,24 @@ package main;
 
 import "core:fmt";
 import "core:os";
+import "core:runtime"
 import "core:strings";
-import winapi "externals:win32";
+import "externals:winapi";
 
-isRunning := true;
+isRunning := false;
+
+bitmapInfo : winapi.BitmapInfo = {};
+bitmapMemory : rawptr;
+bitmapHandle : winapi.HBitmap;
+bitmapDeviceContext : winapi.HDC;
 
 main :: proc() {
     using winapi;
 
-    currentInstance := HInstance(getModuleHandle());
-    fmt.printf("instance: %v\n", currentInstance);
+    currentInstance := cast(HInstance) getModuleHandle();
+    fmt.printf("Instance: %v\n", currentInstance);
 
-    windowClass: WndClassA = {
+    windowClass : WndClassA = {
         style      = u32(ClassStyles.OwnDC | ClassStyles.HRedraw | ClassStyles.VRedraw),
         windowProc = mainWindowProc,
         instance   = currentInstance,
@@ -21,25 +27,27 @@ main :: proc() {
     };
 
     atomHandle := registerClassA(&windowClass);
-    if(atomHandle == 0) {
+    if atomHandle == 0 {
         fmt.println("RegisterClass Fail!");
         fmt.printf("Atom handle: 0x%04x\n", atomHandle);
-        fmt.println(getLastError());
+        fmt.printf("Last error: %", cast(u32) getLastError());
         return;
     }
 
-    windowHandle := createWindow(windowClass.className, "Test window",
-        auto_cast(WindowStyle.OverlappedWindow | WindowStyle.Visible),
-        cast(i32)CW.UseDefault, cast(i32)CW.UseDefault, cast(i32)CW.UseDefault, cast(i32)CW.UseDefault,
+    useDefault := cast(i32) CreateWindow.UseDefault;
+    windowHandle := createWindow(
+        windowClass.className, "Test window",
+        u32(WindowStyle.OverlappedWindow | WindowStyle.Visible),
+        useDefault, useDefault, useDefault, useDefault,
         nil, nil, currentInstance, nil,
     );
 
-    if(windowHandle == nil) {
+    if windowHandle == nil {
         fmt.println("CreateWindow Fail!", windowClass);
-        fmt.println(getLastError());
+        fmt.printf("Last error: %", cast(u32) getLastError());
         return;
     }
-    
+
     isRunning = true;
     message : Msg = ---;
     for isRunning {
@@ -55,12 +63,10 @@ main :: proc() {
     }
 }
 
-resizeDIBSection :: proc(width, height: i32) {
-    
-}
-
-mainWindowProc :: proc(window: winapi.HWnd, message: u32, wParam: winapi.WParam, lParam: winapi.LParam) -> (winapi.LResult) {
+mainWindowProc :: proc "std" (window: winapi.HWnd, message: u32, wParam: winapi.WParam, lParam: winapi.LParam) -> (winapi.LResult) {
     using winapi;
+
+    context = runtime.default_context();
     result : LResult = 0;
     msg := WindowMessage(message);
 
@@ -79,21 +85,25 @@ mainWindowProc :: proc(window: winapi.HWnd, message: u32, wParam: winapi.WParam,
             builder := strings.make_builder();
             strings.write_string(&builder, "WM_SIZE (");
             strings.write_i64(&builder, i64(width));
+            strings.write_string(&builder, ", ");
             strings.write_i64(&builder, i64(height));
             strings.write_string(&builder, ")\n");
             cstr : cstring = strings.clone_to_cstring(strings.to_string(builder));
 
             fmt.printf("WM_SIZE (%d, %d)\n", width, height);
-            outputDebugString("WM_SIZE\n");
+            outputDebugString(cstr);
         case .Paint:
             paint : PaintStruct = ---;
-            deviceContext := beginPaint(window, &paint);
-            x := paint.paintRect.left;
-            y := paint.paintRect.top;
-            width  := paint.paintRect.right  - paint.paintRect.left;
-            height := paint.paintRect.bottom - paint.paintRect.top;
-            patBlt(deviceContext, x, y, width, height, .Whiteness);
-            success := endPaint(window, &paint);
+            paintDeviceContext := beginPaint(window, &paint);
+            {
+                x := paint.paintRect.left;
+                y := paint.paintRect.top;
+                width  := paint.paintRect.right  - paint.paintRect.left;
+                height := paint.paintRect.bottom - paint.paintRect.top;
+                updateMainWindow(paintDeviceContext, x, y, width, height);
+                patBlt(paintDeviceContext, x, y, width, height, .Whiteness);
+            }
+            endPaint(window, &paint);
         case .Close:
             isRunning = false;
             fmt.println("WM_CLOSE");
@@ -106,4 +116,26 @@ mainWindowProc :: proc(window: winapi.HWnd, message: u32, wParam: winapi.WParam,
     }
 
     return result;
+}
+
+resizeDIBSection :: proc(width, height: i32) {
+    using winapi;
+
+    if bitmapHandle != nil {
+        deleteObject(bitmapHandle);
+    }
+    if bitmapDeviceContext == nil {
+        bitmapDeviceContext = createCompatibleDC();
+    }
+
+    bitmapInfo.size = size_of(bitmapInfo.header);
+    bitmapInfo.width = width; bitmapInfo.height = height;
+    bitmapInfo.planes = 1; bitmapInfo.bitCount = .Color32; bitmapInfo.compression = .Rgb;
+
+    bitmapHandle = createDIBSection(bitmapDeviceContext, &bitmapInfo, .RgbColors, &bitmapMemory, nil, 0);
+}
+
+updateMainWindow :: proc(deviceContext : winapi.HDC, x, y, width, height : i32) {
+    using winapi;
+    stretchDIBits(deviceContext, x, y, width, height, x, y, width, height, bitmapMemory, &bitmapInfo, .RgbColors, .SourceCopy);
 }

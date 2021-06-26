@@ -3,7 +3,7 @@ package winapi;
 foreign import "system:kernel32.lib";
 
 // -----------------------------------------------------------------------------------
-// Procedures
+// Overloads
 // -----------------------------------------------------------------------------------
 
 getLastError      :: proc{      wGetLastError };
@@ -11,6 +11,7 @@ getModuleHandle   :: proc{   getModuleHandleA,   getModuleHandleW, getModuleHand
 outputDebugString :: proc{ outputDebugStringA, outputDebugStringW };
 
 // -----------------------------------------------------------------------------------
+// Procedures
 // -----------------------------------------------------------------------------------
 
 getModuleHandleN :: proc()                     -> HModule do return wGetModuleHandleA(nil);

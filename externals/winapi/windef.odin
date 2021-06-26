@@ -4,16 +4,17 @@ package winapi;
 // Types
 // -----------------------------------------------------------------------------------
 
-Bool  :: distinct b32;
-Word  :: distinct u16;
-DWord :: distinct u32;
-
-Atom :: Word;
+Bool  :: b32;
+Word  :: u16;
+DWord :: u32;
+Atom  :: Word;
 
 Handle    :: distinct rawptr;
+HBitmap   :: Handle;
 HBrush    :: Handle;
 HCursor   :: Handle;
 HDC       :: Handle;
+HGdiObj   :: Handle;
 HIcon     :: Handle;
 HInstance :: Handle;
 HMenu     :: Handle;
