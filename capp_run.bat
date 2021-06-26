@@ -18,7 +18,7 @@ if not exist "build\%dir%\" mkdir "build\%dir%\"
 
 
 if not "%1"=="dbg" (
-    odin run src\main.odin %collections% -out:"build\%dir%\%exe_name%.exe" -opt:%level%
+    odin run src\main.odin %collections% -out:"build\%dir%\%exe_name%.exe" -opt:%level% -vet
 ) else (
-    odin build src\main.odin %collections% -out:"build\%dir%\%exe_name%.exe" -opt:%level% -debug
+    odin build src\main.odin %collections% -out:"build\%dir%\%exe_name%.exe" -opt:%level% -debug -vet
 )

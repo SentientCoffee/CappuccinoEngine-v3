@@ -2,8 +2,8 @@ package main;
 
 import "core:fmt";
 import "core:mem";
-import "core:os";
-import "core:sys/win32";
+// import "core:os";
+// import "core:sys/win32";
 import "core:runtime"
 import "core:strings";
 
@@ -12,7 +12,7 @@ import "externals:winapi";
 isRunning := false;
 
 bitmapInfo : winapi.BitmapInfo = {};
-bitmapMemory : rawptr = nil;
+bitmapMemory : rawptr;
 bitmapWidth, bitmapHeight : i32 = 0, 0;
 
 main :: proc() {
@@ -30,23 +30,20 @@ main :: proc() {
 
     atomHandle := registerClassA(&windowClass);
     if atomHandle == 0 {
-        fmt.println("RegisterClass Fail!");
-        fmt.printf("Atom handle: 0x%04x\n", atomHandle);
-        fmt.printf("Last error: %v\n", getLastError());
+        dumpLastError("RegisterClass");
         return;
     }
 
     useDefault := cast(i32) CreateWindow.UseDefault;
     windowHandle := createWindow(
-        windowClass.className, "Test window",
+        windowClass.className, "CappuccinoEngine-v3",
         u32(WindowStyle.OverlappedWindow | WindowStyle.Visible),
         useDefault, useDefault, useDefault, useDefault,
         nil, nil, currentInstance, nil,
     );
 
     if windowHandle == nil {
-        fmt.println("CreateWindow Fail!", windowClass);
-        fmt.printf("Last error: %v\n", getLastError());
+        dumpLastError("CreateWindow");
         return;
     }
 
@@ -55,8 +52,9 @@ main :: proc() {
     for isRunning {
         success := getMessage(&message, nil, 0, 0);
         if !success {
-            fmt.println(message);
-            fmt.printf("Last error: %v\n", getLastError());
+            builder := strings.make_builder(context.temp_allocator);
+            strings.write_int(&builder, int(message.message), 16);
+            dumpLastError(strings.to_string(builder));
             break;
         }
 
@@ -135,16 +133,14 @@ resizeDIBSection :: proc(width, height: i32) {
     bytesPerPixel : i32 = 4;
     bitmapMemorySize := uint(bitmapWidth * bitmapHeight * bytesPerPixel);
 
-    bitmapMemory := virtualAlloc(nil, bitmapMemorySize, u32(AllocationType.Commit), u32(MemoryProtection.ReadWrite));
-    if bitmapMemory == nil {
-        fmt.println("VirtualAlloc Fail!");
-        fmt.printf("Last error: %v\n", getLastError());
-    }
+    bitmapMemory = virtualAlloc(nil, bitmapMemorySize, u32(AllocationType.Commit), u32(MemoryProtection.ReadWrite));
+    if bitmapMemory == nil do dumpLastError("VirtualAlloc");
 
     bitmap := mem.byte_slice(bitmapMemory, cast(int) bitmapMemorySize);
+    pitch := bitmapWidth * bytesPerPixel;
     for y in 0..<bitmapHeight {
-        for x in 0..< bitmapWidth {
-            pixel := y * bitmapWidth + x;
+        for x : i32 = 0 ; x < pitch; x += bytesPerPixel {
+            pixel := y * pitch + x;
             r, g, b, a : u8 = 255, 0, 0, 0;
             bitmap[pixel    ] = b;
             bitmap[pixel + 1] = g;
@@ -153,8 +149,7 @@ resizeDIBSection :: proc(width, height: i32) {
         }
     }
 
-    // assert(bitmap != nil);
-    // assert(bitmapMemory != nil);
+    assert(bitmapMemory != nil);
 }
 
 updateMainWindow :: proc(deviceContext : winapi.HDC, windowRect : winapi.Rect, x, y, width, height : i32) {
@@ -164,7 +159,6 @@ updateMainWindow :: proc(deviceContext : winapi.HDC, windowRect : winapi.Rect, x
     windowWidth  := right - left;
     windowHeight := bottom - top;
 
-    // assert(bitmapMemory != nil, "Bitmap memory is nil!");
     success := stretchDIBits(
         deviceContext,
         0, 0, bitmapWidth, bitmapHeight,
@@ -173,8 +167,11 @@ updateMainWindow :: proc(deviceContext : winapi.HDC, windowRect : winapi.Rect, x
         .RgbColors, .SourceCopy,
     );
 
-    if success == 0 {
-        fmt.printf("StretchDIBits fail!\n");
-        fmt.printf("Last error: %v\n", getLastError());
-    }
+    if success == 0 do dumpLastError("StretchDIBits");
+}
+
+dumpLastError :: #force_inline proc(error : string) {
+    using winapi;
+    fmt.printf("%v fail! \n", error);
+    fmt.printf("Last error: %v\n", getLastError());
 }
