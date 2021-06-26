@@ -1,17 +1,19 @@
 package main;
 
 import "core:fmt";
+import "core:mem";
 import "core:os";
+import "core:sys/win32";
 import "core:runtime"
 import "core:strings";
+
 import "externals:winapi";
 
 isRunning := false;
 
 bitmapInfo : winapi.BitmapInfo = {};
-bitmapMemory : rawptr;
-bitmapHandle : winapi.HBitmap;
-bitmapDeviceContext : winapi.HDC;
+bitmapMemory : rawptr = nil;
+bitmapWidth, bitmapHeight : i32 = 0, 0;
 
 main :: proc() {
     using winapi;
@@ -30,7 +32,7 @@ main :: proc() {
     if atomHandle == 0 {
         fmt.println("RegisterClass Fail!");
         fmt.printf("Atom handle: 0x%04x\n", atomHandle);
-        fmt.printf("Last error: %", cast(u32) getLastError());
+        fmt.printf("Last error: %v\n", getLastError());
         return;
     }
 
@@ -44,7 +46,7 @@ main :: proc() {
 
     if windowHandle == nil {
         fmt.println("CreateWindow Fail!", windowClass);
-        fmt.printf("Last error: %", cast(u32) getLastError());
+        fmt.printf("Last error: %v\n", getLastError());
         return;
     }
 
@@ -54,7 +56,7 @@ main :: proc() {
         success := getMessage(&message, nil, 0, 0);
         if !success {
             fmt.println(message);
-            fmt.println(getLastError());
+            fmt.printf("Last error: %v\n", getLastError());
             break;
         }
 
@@ -63,12 +65,14 @@ main :: proc() {
     }
 }
 
-mainWindowProc :: proc "std" (window: winapi.HWnd, message: u32, wParam: winapi.WParam, lParam: winapi.LParam) -> (winapi.LResult) {
+mainWindowProc :: proc "std" (window: winapi.HWnd, message: u32, wParam: winapi.WParam, lParam: winapi.LParam) -> (result : winapi.LResult) {
     using winapi;
-
     context = runtime.default_context();
-    result : LResult = 0;
+    result = 0;
+
     msg := WindowMessage(message);
+    clientRect : Rect;
+    getClientRect(window, &clientRect);
 
     #partial switch msg {
         case .Destroy:
@@ -76,8 +80,6 @@ mainWindowProc :: proc "std" (window: winapi.HWnd, message: u32, wParam: winapi.
             fmt.println("WM_DESTROY");
             outputDebugString("WM_DESTROY\n");
         case .Size:
-            clientRect : Rect;
-            getClientRect(window, &clientRect);
             width  := clientRect.right  - clientRect.left;
             height := clientRect.bottom - clientRect.top;
             resizeDIBSection(width, height);
@@ -100,8 +102,7 @@ mainWindowProc :: proc "std" (window: winapi.HWnd, message: u32, wParam: winapi.
                 y := paint.paintRect.top;
                 width  := paint.paintRect.right  - paint.paintRect.left;
                 height := paint.paintRect.bottom - paint.paintRect.top;
-                updateMainWindow(paintDeviceContext, x, y, width, height);
-                patBlt(paintDeviceContext, x, y, width, height, .Whiteness);
+                updateMainWindow(paintDeviceContext, clientRect, x, y, width, height);
             }
             endPaint(window, &paint);
         case .Close:
@@ -115,27 +116,65 @@ mainWindowProc :: proc "std" (window: winapi.HWnd, message: u32, wParam: winapi.
             result = defWindowProcA(window, message, wParam, lParam);
     }
 
-    return result;
+    return;
 }
 
 resizeDIBSection :: proc(width, height: i32) {
     using winapi;
 
-    if bitmapHandle != nil {
-        deleteObject(bitmapHandle);
+    if bitmapMemory != nil {
+        virtualFree(bitmapMemory, 0, u32(FreeType.Release));
     }
-    if bitmapDeviceContext == nil {
-        bitmapDeviceContext = createCompatibleDC();
-    }
+
+    bitmapWidth, bitmapHeight = width, height;
 
     bitmapInfo.size = size_of(bitmapInfo.header);
-    bitmapInfo.width = width; bitmapInfo.height = height;
+    bitmapInfo.width = bitmapWidth; bitmapInfo.height = -bitmapHeight;
     bitmapInfo.planes = 1; bitmapInfo.bitCount = .Color32; bitmapInfo.compression = .Rgb;
 
-    bitmapHandle = createDIBSection(bitmapDeviceContext, &bitmapInfo, .RgbColors, &bitmapMemory, nil, 0);
+    bytesPerPixel : i32 = 4;
+    bitmapMemorySize := uint(bitmapWidth * bitmapHeight * bytesPerPixel);
+
+    bitmapMemory := virtualAlloc(nil, bitmapMemorySize, u32(AllocationType.Commit), u32(MemoryProtection.ReadWrite));
+    if bitmapMemory == nil {
+        fmt.println("VirtualAlloc Fail!");
+        fmt.printf("Last error: %v\n", getLastError());
+    }
+
+    bitmap := mem.byte_slice(bitmapMemory, cast(int) bitmapMemorySize);
+    for y in 0..<bitmapHeight {
+        for x in 0..< bitmapWidth {
+            pixel := y * bitmapWidth + x;
+            r, g, b, a : u8 = 255, 0, 0, 0;
+            bitmap[pixel    ] = b;
+            bitmap[pixel + 1] = g;
+            bitmap[pixel + 2] = r;
+            bitmap[pixel + 3] = a;
+        }
+    }
+
+    // assert(bitmap != nil);
+    // assert(bitmapMemory != nil);
 }
 
-updateMainWindow :: proc(deviceContext : winapi.HDC, x, y, width, height : i32) {
+updateMainWindow :: proc(deviceContext : winapi.HDC, windowRect : winapi.Rect, x, y, width, height : i32) {
     using winapi;
-    stretchDIBits(deviceContext, x, y, width, height, x, y, width, height, bitmapMemory, &bitmapInfo, .RgbColors, .SourceCopy);
+    using windowRect;
+
+    windowWidth  := right - left;
+    windowHeight := bottom - top;
+
+    // assert(bitmapMemory != nil, "Bitmap memory is nil!");
+    success := stretchDIBits(
+        deviceContext,
+        0, 0, bitmapWidth, bitmapHeight,
+        0, 0, windowWidth, windowHeight,
+        bitmapMemory, &bitmapInfo,
+        .RgbColors, .SourceCopy,
+    );
+
+    if success == 0 {
+        fmt.printf("StretchDIBits fail!\n");
+        fmt.printf("Last error: %v\n", getLastError());
+    }
 }

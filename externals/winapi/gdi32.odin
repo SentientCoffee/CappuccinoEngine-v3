@@ -52,8 +52,8 @@ RasterOperation :: enum u32 {
 // -----------------------------------------------------------------------------------
 
 BitmapInfo :: struct {
-    using header: BitmapInfoHeader,
-    colors:       [1]RgbQuad,
+    using header : BitmapInfoHeader,
+    colors       : [1]RgbQuad,
 }
 
 BitmapInfoHeader :: struct {
