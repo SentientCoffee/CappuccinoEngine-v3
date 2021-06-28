@@ -2,9 +2,7 @@ package main;
 
 import "core:fmt";
 import "core:mem";
-// import "core:os";
-// import "core:sys/win32";
-import "core:runtime"
+import "core:runtime";
 import "core:strings";
 
 import "externals:winapi";
@@ -13,115 +11,136 @@ isRunning := false;
 
 bitmapInfo : winapi.BitmapInfo = {};
 bitmapMemory : rawptr;
+
 bitmapWidth, bitmapHeight : i32 = 0, 0;
+bytesPerPixel : i32 : 4;
 
 main :: proc() {
     using winapi;
-
     currentInstance := cast(HInstance) getModuleHandle();
-    fmt.printf("Instance: %v\n", currentInstance);
+    fmt.printf("Instance: 0x{:x}\n", currentInstance);
 
     windowClass : WndClassA = {
-        style      = u32(ClassStyles.OwnDC | ClassStyles.HRedraw | ClassStyles.VRedraw),
+        style      = cast(u32) (ClassStyles.OwnDC | ClassStyles.HRedraw | ClassStyles.VRedraw),
         windowProc = mainWindowProc,
         instance   = currentInstance,
         className  = "Win32WindowClass",
     };
 
-    atomHandle := registerClassA(&windowClass);
-    if atomHandle == 0 {
-        dumpLastError("RegisterClass");
+    if atomHandle := registerClassA(&windowClass); atomHandle == 0 {
+        debugStr := fmt.tprintf("RegisterClass: Atom 0x{:x}", atomHandle);
+        dumpLastError(debugStr);
         return;
     }
 
     useDefault := cast(i32) CreateWindow.UseDefault;
-    windowHandle := createWindow(
+    window := createWindow(
         windowClass.className, "CappuccinoEngine-v3",
-        u32(WindowStyle.OverlappedWindow | WindowStyle.Visible),
+        cast(u32) (WindowStyle.OverlappedWindow | WindowStyle.Visible),
         useDefault, useDefault, useDefault, useDefault,
         nil, nil, currentInstance, nil,
     );
 
-    if windowHandle == nil {
+    if window == nil {
         dumpLastError("CreateWindow");
         return;
     }
 
     isRunning = true;
     message : Msg = ---;
+    xOffset, yOffset : i32;
     for isRunning {
-        success := getMessage(&message, nil, 0, 0);
-        if !success {
-            builder := strings.make_builder(context.temp_allocator);
-            strings.write_int(&builder, int(message.message), 16);
-            dumpLastError(strings.to_string(builder));
-            break;
+        if err := mem.free_all(context.temp_allocator); err != .None {
+            fmt.printf("Error freeing temp allocator: {}", err);
         }
 
-        translateMessage(&message);
-        dispatchMessage(&message);
+        for peekMessage(&message, nil, 0, 0, cast(u32) WindowPeekMessage.Remove) {
+            if message.message == WindowMessage.Quit do isRunning = false;
+            translateMessage(&message);
+            dispatchMessage(&message);
+        }
+
+        renderWeirdGradient(xOffset, yOffset);
+        {
+            deviceContext := getDc(window);
+            using clientRect : Rect = ---;
+            getClientRect(window, &clientRect);
+            width  := right  - left;
+            height := bottom - top;
+            updateMainWindow(deviceContext, clientRect, 0, 0, width, height);
+            releaseDc(window, deviceContext);
+        }
+        xOffset += 1;
     }
 }
 
-mainWindowProc :: proc "std" (window: winapi.HWnd, message: u32, wParam: winapi.WParam, lParam: winapi.LParam) -> (result : winapi.LResult) {
+mainWindowProc :: proc "std" (window: winapi.HWnd, message: winapi.WindowMessage, wParam: winapi.WParam, lParam: winapi.LParam) -> (result : winapi.LResult) {
     using winapi;
     context = runtime.default_context();
-    result = 0;
 
-    msg := WindowMessage(message);
-    clientRect : Rect;
+    result = 0;
+    clientRect : Rect = ---;
     getClientRect(window, &clientRect);
 
-    #partial switch msg {
+    #partial switch message {
         case .Destroy:
             isRunning = false;
-            fmt.println("WM_DESTROY");
-            outputDebugString("WM_DESTROY\n");
+            fmt.printf("{}\n", message);
+            outputDebugString(debugCString("{}\n", message));
         case .Size:
-            width  := clientRect.right  - clientRect.left;
-            height := clientRect.bottom - clientRect.top;
-            resizeDIBSection(width, height);
+            using clientRect;
+            width  := right  - left;
+            height := bottom - top;
+            resizeDibSection(width, height);
 
-            builder := strings.make_builder();
-            strings.write_string(&builder, "WM_SIZE (");
-            strings.write_i64(&builder, i64(width));
-            strings.write_string(&builder, ", ");
-            strings.write_i64(&builder, i64(height));
-            strings.write_string(&builder, ")\n");
-            cstr : cstring = strings.clone_to_cstring(strings.to_string(builder));
-
-            fmt.printf("WM_SIZE (%d, %d)\n", width, height);
-            outputDebugString(cstr);
+            fmt.printf("{} ({}, {})\n", message, width, height);
+            outputDebugString(debugCString("{} ({}, {})\n", message, width, height));
         case .Paint:
-            paint : PaintStruct = ---;
+            using paint : PaintStruct = ---;
             paintDeviceContext := beginPaint(window, &paint);
             {
-                x := paint.paintRect.left;
-                y := paint.paintRect.top;
-                width  := paint.paintRect.right  - paint.paintRect.left;
-                height := paint.paintRect.bottom - paint.paintRect.top;
+                using paintRect;
+                x := left;
+                y := top;
+                width  := right  - left;
+                height := bottom - top;
                 updateMainWindow(paintDeviceContext, clientRect, x, y, width, height);
             }
             endPaint(window, &paint);
         case .Close:
             isRunning = false;
-            fmt.println("WM_CLOSE");
-            outputDebugString("WM_CLOSE\n");
+            fmt.printf("{}\n", message);
+            outputDebugString(debugCString("{}\n", message));
         case .ActivateApp:
-            fmt.println("WM_ACTIVATEAPP");
-            outputDebugString("WM_ACTIVATEAPP\n");
+            fmt.printf("{}\n", message);
+            outputDebugString(debugCString("{}\n", message));
         case:
-            result = defWindowProcA(window, message, wParam, lParam);
+            result = defWindowProc(window, message, wParam, lParam);
     }
 
     return;
 }
 
-resizeDIBSection :: proc(width, height: i32) {
+renderWeirdGradient :: proc(xOffset, yOffset : i32) {
+    bitmap := mem.byte_slice(bitmapMemory, cast(int) (bitmapWidth * bitmapHeight * bytesPerPixel));
+    pitch := bitmapWidth * bytesPerPixel;
+    for y in 0..<bitmapHeight {
+        for x in 0..<bitmapWidth {
+            index := y * pitch + (x * bytesPerPixel);
+            r, g, b, a : u8 = 0, cast(u8) (y + yOffset), cast(u8) (x + xOffset), 0;
+            bitmap[index    ] = b;
+            bitmap[index + 1] = g;
+            bitmap[index + 2] = r;
+            bitmap[index + 3] = a;
+        }
+    }
+}
+
+resizeDibSection :: proc(width, height: i32) {
     using winapi;
 
     if bitmapMemory != nil {
-        virtualFree(bitmapMemory, 0, u32(FreeType.Release));
+        virtualFree(bitmapMemory, 0, cast(u32) MemoryFreeType.Release);
     }
 
     bitmapWidth, bitmapHeight = width, height;
@@ -130,26 +149,10 @@ resizeDIBSection :: proc(width, height: i32) {
     bitmapInfo.width = bitmapWidth; bitmapInfo.height = -bitmapHeight;
     bitmapInfo.planes = 1; bitmapInfo.bitCount = .Color32; bitmapInfo.compression = .Rgb;
 
-    bytesPerPixel : i32 = 4;
-    bitmapMemorySize := uint(bitmapWidth * bitmapHeight * bytesPerPixel);
+    bitmapMemorySize := cast(int) (bitmapWidth * bitmapHeight * bytesPerPixel);
 
-    bitmapMemory = virtualAlloc(nil, bitmapMemorySize, u32(AllocationType.Commit), u32(MemoryProtection.ReadWrite));
+    bitmapMemory = virtualAlloc(nil, cast(uint) bitmapMemorySize, cast(u32) MemoryAllocType.Commit, cast(u32) MemoryProtection.ReadWrite);
     if bitmapMemory == nil do dumpLastError("VirtualAlloc");
-
-    bitmap := mem.byte_slice(bitmapMemory, cast(int) bitmapMemorySize);
-    pitch := bitmapWidth * bytesPerPixel;
-    for y in 0..<bitmapHeight {
-        for x : i32 = 0 ; x < pitch; x += bytesPerPixel {
-            pixel := y * pitch + x;
-            r, g, b, a : u8 = 255, 0, 0, 0;
-            bitmap[pixel    ] = b;
-            bitmap[pixel + 1] = g;
-            bitmap[pixel + 2] = r;
-            bitmap[pixel + 3] = a;
-        }
-    }
-
-    assert(bitmapMemory != nil);
 }
 
 updateMainWindow :: proc(deviceContext : winapi.HDC, windowRect : winapi.Rect, x, y, width, height : i32) {
@@ -159,7 +162,7 @@ updateMainWindow :: proc(deviceContext : winapi.HDC, windowRect : winapi.Rect, x
     windowWidth  := right - left;
     windowHeight := bottom - top;
 
-    success := stretchDIBits(
+    success := stretchDiBits(
         deviceContext,
         0, 0, bitmapWidth, bitmapHeight,
         0, 0, windowWidth, windowHeight,
@@ -170,8 +173,13 @@ updateMainWindow :: proc(deviceContext : winapi.HDC, windowRect : winapi.Rect, x
     if success == 0 do dumpLastError("StretchDIBits");
 }
 
+debugCString :: #force_inline proc(formatString : string, arguments : ..any) -> cstring {
+    debugStr  := fmt.tprintf(formatString, ..arguments);
+    return strings.clone_to_cstring(debugStr, context.temp_allocator);
+}
+
 dumpLastError :: #force_inline proc(error : string) {
     using winapi;
-    fmt.printf("%v fail! \n", error);
-    fmt.printf("Last error: %v\n", getLastError());
+    fmt.printf("Windows fail! {} \n", error);
+    fmt.printf("Last error: 0x{:x}\n", getLastError());
 }

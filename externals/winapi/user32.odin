@@ -6,7 +6,7 @@ foreign import "system:user32.lib";
 // Types
 // -----------------------------------------------------------------------------------
 
-WndProc :: distinct #type proc "std" (HWnd, u32, WParam, LParam) -> LResult;
+WndProc :: distinct #type proc "std" (HWnd, WindowMessage, WParam, LParam) -> LResult;
 
 // -----------------------------------------------------------------------------------
 // Enums
@@ -31,13 +31,41 @@ ClassStyles :: enum u32 {
     DropShadow      = 0x0002_0000,
 }
 
+QueueStatus :: enum u32 {
+    Key            = 0x0001,
+    MouseMove      = 0x0002,
+    MouseButton    = 0x0004,
+    PostMessage    = 0x0008,
+    Timer          = 0x0010,
+    Paint          = 0x0020,
+    SendMessage    = 0x0040,
+    Hotkey         = 0x0080,
+    AllPostMessage = 0x0100,
+    RawInput       = 0x0400,
+    Mouse          = MouseMove | MouseButton,
+    Input          = Mouse | Key | RawInput,
+    AllEvents      = Input | PostMessage | Timer | Paint | Hotkey,
+    AllInput       = Input | PostMessage | Timer | Paint | Hotkey | SendMessage,
+}
+
 WindowMessage :: enum u32 {
     Create      = 0x0001,
     Destroy     = 0x0002,
     Size        = 0x0005,
     Paint       = 0x000F,
     Close       = 0x0010,
+    Quit        = 0x0012,
     ActivateApp = 0x001C,
+}
+
+WindowPeekMessage :: enum u32 {
+    NoRemove         = 0x0000,
+    Remove           = 0x0001,
+    NoYield          = 0x0002,
+    QueueInput       = cast(u32) (QueueStatus.Input) << 16,
+    QueuePaint       = cast(u32) (QueueStatus.Paint) << 16,
+    QueueSendMessage = cast(u32) (QueueStatus.SendMessage) << 16,
+    QueuePostMessage = cast(u32) (QueueStatus.PostMessage | QueueStatus.Hotkey | QueueStatus.Timer) << 16,
 }
 
 WindowSize :: enum u32 {
@@ -65,7 +93,7 @@ WindowStyle :: enum u32 {
 
 Msg :: struct {
     windowHandle : HWnd,
-    message      : u32,
+    message      : WindowMessage,
     wParam       : WParam,
     lParam       : LParam,
     time         : DWord,
@@ -135,13 +163,16 @@ WndClassExW :: struct {
 beginPaint       :: proc{ wBeginPaint       };
 endPaint         :: proc{ wEndPaint         };
 getClientRect    :: proc{ wGetClientRect    };
+getDc            :: proc{ wGetDc            };
 postQuitMessage  :: proc{ wPostQuitMessage  };
+releaseDc        :: proc{ wReleaseDc        };
 translateMessage :: proc{ wTranslateMessage };
 
 createWindow     :: proc{     createWindowA,  createWindowW,  createWindowExA,  createWindowExW };
 defWindowProc    :: proc{    defWindowProcA };
 dispatchMessage  :: proc{  dispatchMessageA };
 getMessage       :: proc{       getMessageA };
+peekMessage      :: proc{      peekMessageA };
 registerClass    :: proc{    registerClassA, registerClassW, registerClassExA, registerClassExW };
 
 // -----------------------------------------------------------------------------------
@@ -192,8 +223,8 @@ createWindowExW :: proc(
 
 // -----------------------------------------------------------------------------------
 
-defWindowProcA :: proc(hwnd: HWnd, message: u32, wParam: WParam, lParam: LParam) -> LResult do return wDefWindowProcA(hwnd, message, wParam, lParam);
-defWindowProcW :: proc(hwnd: HWnd, message: u32, wParam: WParam, lParam: LParam) -> LResult do return wDefWindowProcW(hwnd, message, wParam, lParam);
+defWindowProcA :: proc(hwnd: HWnd, message: WindowMessage, wParam: WParam, lParam: LParam) -> LResult do return wDefWindowProcA(hwnd, u32(message), wParam, lParam);
+defWindowProcW :: proc(hwnd: HWnd, message: WindowMessage, wParam: WParam, lParam: LParam) -> LResult do return wDefWindowProcW(hwnd, u32(message), wParam, lParam);
 
 // -----------------------------------------------------------------------------------
 
@@ -204,6 +235,11 @@ dispatchMessageW :: proc(message : ^Msg) -> LResult do return wDispatchMessageW(
 
 getMessageA :: proc(message : ^Msg, handle : HWnd, messageFilterMin : u32, messageFilterMax : u32) -> Bool do return wGetMessageA(message, handle, messageFilterMin, messageFilterMax);
 getMessageW :: proc(message : ^Msg, handle : HWnd, messageFilterMin : u32, messageFilterMax : u32) -> Bool do return wGetMessageW(message, handle, messageFilterMin, messageFilterMax);
+
+// -----------------------------------------------------------------------------------
+
+peekMessageA :: proc(message : ^Msg, handle : HWnd, messageFilterMin : u32, messageFilterMax : u32, peekMessage : u32) -> Bool do return wPeekMessageA(message, handle, messageFilterMin, messageFilterMax, peekMessage);
+peekMessageW :: proc(message : ^Msg, handle : HWnd, messageFilterMin : u32, messageFilterMax : u32, peekMessage : u32) -> Bool do return wPeekMessageW(message, handle, messageFilterMin, messageFilterMax, peekMessage);
 
 // -----------------------------------------------------------------------------------
 
@@ -243,16 +279,20 @@ foreign user32 {
 
     @(link_name="EndPaint")         wEndPaint         :: proc(window: HWnd, paint: ^PaintStruct) -> Bool ---;
 
+    @(link_name="GetDC")            wGetDc            :: proc(handle : HWnd) -> HDC ---;
     @(link_name="GetMessageA")      wGetMessageA      :: proc(message : ^Msg, handle : HWnd, messageFilterMin : u32, messageFilterMax : u32) -> Bool ---;
     @(link_name="GetMessageW")      wGetMessageW      :: proc(message : ^Msg, handle : HWnd, messageFilterMin : u32, messageFilterMax : u32) -> Bool ---;
     @(link_name="GetClientRect")    wGetClientRect    :: proc(hwnd: HWnd, rect: ^Rect) -> Bool ---;
-
+    
+    @(link_name="PeekMessageA")     wPeekMessageA     :: proc(message : ^Msg, handle : HWnd, messageFilterMin : u32, messageFilterMax : u32, removeMessage : u32) -> Bool ---;
+    @(link_name="PeekMessageW")     wPeekMessageW     :: proc(message : ^Msg, handle : HWnd, messageFilterMin : u32, messageFilterMax : u32, removeMessage : u32) -> Bool ---;
     @(link_name="PostQuitMessage")  wPostQuitMessage  :: proc(exitCode: i32) ---;
-
+    
     @(link_name="RegisterClassA")   wRegisterClassA   :: proc(windowClass : ^WndClassA)   -> Atom ---;
     @(link_name="RegisterClassW")   wRegisterClassW   :: proc(windowClass : ^WndClassW)   -> Atom ---;
     @(link_name="RegisterClassExA") wRegisterClassExA :: proc(windowClass : ^WndClassExA) -> Atom ---;
     @(link_name="RegisterClassExW") wRegisterClassExW :: proc(windowClass : ^WndClassExW) -> Atom ---;
+    @(link_name="ReleaseDC")        wReleaseDc        :: proc(handle : HWnd, hdc : HDC) -> i32 ---;
 
     @(link_name="TranslateMessage") wTranslateMessage :: proc(message : ^Msg) -> Bool    ---;
 

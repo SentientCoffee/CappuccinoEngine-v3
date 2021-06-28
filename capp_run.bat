@@ -1,24 +1,15 @@
 @echo off
 setlocal
 
-set level=0
-set dir=debug
-set command=run
+set dir=release
 set exe_name=cappuccino
-set collections="-collection:externals=externals"
 
-if not "%1"=="release" (
+if "%1"=="debug" (
+    set dir=debug
     set exe_name=%exe_name%_d
+    echo Running debug build...
 ) else (
-    set level=2
-    set dir=release
+    echo Running release build...
 )
 
-if not exist "build\%dir%\" mkdir "build\%dir%\"
-
-
-if not "%1"=="dbg" (
-    odin run src\main.odin %collections% -out:"build\%dir%\%exe_name%.exe" -opt:%level% -vet
-) else (
-    odin build src\main.odin %collections% -out:"build\%dir%\%exe_name%.exe" -opt:%level% -debug -vet
-)
+"build\%dir%\%exe_name%.exe"

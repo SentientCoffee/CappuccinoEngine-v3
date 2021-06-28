@@ -6,22 +6,22 @@ foreign import "system:kernel32.lib";
 // Enums
 // -----------------------------------------------------------------------------------
 
-AllocationType :: enum u32 {
+MemoryAllocType :: enum u32 {
     Commit     = 0x0000_1000,
     Reserve    = 0x0000_2000,
     Reset      = 0x0000_8000,
-    ResetUndo  = 0x1000_0000,
-    LargePages = Commit | Reserve | 0x2000_0000,
-    Physical   = Reserve | 0x0040_0000,
     TopDown    = 0x0010_0000,
-    WriteWatch = Reserve | 0x0020_0000,
+    ResetUndo  = 0x1000_0000,
+    WriteWatch = 0x0020_0000 | Reserve,
+    Physical   = 0x0040_0000 | Reserve,
+    LargePages = 0x2000_0000 | Commit | Reserve,
 }
 
-FreeType :: enum u32 {
+MemoryFreeType :: enum u32 {
     Decommit             = 0x0000_4000,
     Release              = 0x0000_8000,
-    CoalescePlaceholders = Release | 0x0000_0001,
-    PreservePlaceholder  = Release | 0x0000_0002,
+    CoalescePlaceholders = 0x0000_0001 | Release,
+    PreservePlaceholder  = 0x0000_0002 | Release,
 }
 
 MemoryProtection :: enum u32 {
@@ -77,6 +77,6 @@ foreign kernel32 {
     @(link_name="OutputDebugStringA") wOutputDebugStringA :: proc(message : cstring) ---;
     @(link_name="OutputDebugStringW") wOutputDebugStringW :: proc(message : WString) ---;
 
-    @(link_name="VirtualAlloc")       wVirtualAlloc       :: proc(address : rawptr, size : uint, allocationType : DWord, protection : DWord) -> rawptr ---;
+    @(link_name="VirtualAlloc")       wVirtualAlloc       :: proc(address : rawptr, size : uint, allocType : DWord, protection : DWord) -> rawptr ---;
     @(link_name="VirtualFree")        wVirtualFree        :: proc(address : rawptr, size : uint, freeType : DWord) -> Bool ---;
 }

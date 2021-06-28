@@ -24,7 +24,7 @@ BitmapCompression :: enum u32 {
     Png       = 5,
 }
 
-DIBUsage :: enum u32 {
+DibUsage :: enum u32 {
     RgbColors     = 0,
     PaletteColors = 1,
 }
@@ -77,23 +77,23 @@ RgbQuad :: struct {
 // Overloads
 // -----------------------------------------------------------------------------------
 
-createCompatibleDC :: proc{ createCompatibleDCHandle, createCompatibleDCNil };
+createCompatibleDc :: proc{ createCompatibleDcHandle, createCompatibleDcNil };
 
 // -----------------------------------------------------------------------------------
 // Procedures
 // -----------------------------------------------------------------------------------
 
-createCompatibleDCHandle :: proc(hdc : HDC) -> HDC do return wCreateCompatibleDC(hdc);
-createCompatibleDCNil    :: proc() -> HDC          do return wCreateCompatibleDC(nil);
+createCompatibleDcHandle :: proc(hdc : HDC) -> HDC do return wCreateCompatibleDc(hdc);
+createCompatibleDcNil    :: proc() -> HDC          do return wCreateCompatibleDc(nil);
 
 // -----------------------------------------------------------------------------------
 
-createDIBSection :: proc(
+createDibSection :: proc(
     hdc : HDC,
-    bitmapInfo : ^BitmapInfo, usage : DIBUsage, rawBits : ^rawptr,
+    bitmapInfo : ^BitmapInfo, usage : DibUsage, rawBits : ^rawptr,
     section : Handle, offset : DWord) -> HBitmap
 {
-    return wCreateDIBSection(hdc, bitmapInfo, u32(usage), rawBits, section, offset);
+    return wCreateDibSection(hdc, bitmapInfo, u32(usage), rawBits, section, offset);
 }
 
 // -----------------------------------------------------------------------------------
@@ -104,14 +104,14 @@ patBlt :: proc(hdc : HDC, x, y, width, height : i32, rasterOp : RasterOperation)
 
 // -----------------------------------------------------------------------------------
 
-stretchDIBits :: proc(
+stretchDiBits :: proc(
     hdc : HDC,
     destX, destY, destWidth, destHeight : i32,
     srcX, srcY, srcWidth, srcHeight : i32,
     rawBits : rawptr, bitmapInfo : ^BitmapInfo,
-    usage : DIBUsage, rasterOp : RasterOperation) -> i32
+    usage : DibUsage, rasterOp : RasterOperation) -> i32
 {
-    return wStretchDIBits(hdc, destX, destY, destWidth, destHeight, srcX, srcY, srcWidth, srcHeight, rawBits, bitmapInfo, u32(usage), u32(rasterOp));
+    return wStretchDiBits(hdc, destX, destY, destWidth, destHeight, srcX, srcY, srcWidth, srcHeight, rawBits, bitmapInfo, u32(usage), u32(rasterOp));
 }
 
 // -----------------------------------------------------------------------------------
@@ -120,11 +120,11 @@ stretchDIBits :: proc(
 
 @(private="file", default_calling_convention="std")
 foreign gdi32 {
-    @(link_name="CreateCompatibleDC") wCreateCompatibleDC :: proc(hdc : HDC) -> HDC ---;
-    @(link_name="CreateDIBSection")   wCreateDIBSection   :: proc(hdc : HDC, bitmapInfo : ^BitmapInfo, usage : u32, rawBits : ^rawptr, section : Handle, offset : DWord) -> HBitmap ---;
+    @(link_name="CreateCompatibleDC") wCreateCompatibleDc :: proc(hdc : HDC) -> HDC ---;
+    @(link_name="CreateDIBSection")   wCreateDibSection   :: proc(hdc : HDC, bitmapInfo : ^BitmapInfo, usage : u32, rawBits : ^rawptr, section : Handle, offset : DWord) -> HBitmap ---;
     @(link_name="DeleteObject")       wDeleteObject       :: proc(ho : HGdiObj) -> Bool ---;
     @(link_name="PatBlt")             wPatBlt             :: proc(hdc : HDC, x, y, w, h : i32, rasterOp : u32) -> Bool ---;
-    @(link_name="StretchDIBits")      wStretchDIBits      :: proc(
+    @(link_name="StretchDIBits")      wStretchDiBits      :: proc(
         hdc : HDC,
         destX, destY, destWidth, destHeight : i32,
         srcX, srcY, srcWidth, srcHeight : i32,
