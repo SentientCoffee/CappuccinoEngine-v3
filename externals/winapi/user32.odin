@@ -58,7 +58,7 @@ WindowMessage :: enum u32 {
     ActivateApp = 0x001C,
 }
 
-WindowPeekMessage :: enum u32 {
+PeekMessage :: enum u32 {
     NoRemove         = 0x0000,
     Remove           = 0x0001,
     NoYield          = 0x0002,
