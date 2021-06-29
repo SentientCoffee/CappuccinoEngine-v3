@@ -77,14 +77,14 @@ RgbQuad :: struct {
 // Overloads
 // -----------------------------------------------------------------------------------
 
-createCompatibleDc :: proc{ createCompatibleDcHandle, createCompatibleDcNil };
+createCompatibleDc :: proc{ createCompatibleDc_handle, createCompatibleDc_nil };
 
 // -----------------------------------------------------------------------------------
 // Procedures
 // -----------------------------------------------------------------------------------
 
-createCompatibleDcHandle :: proc(hdc : HDC) -> HDC do return wCreateCompatibleDc(hdc);
-createCompatibleDcNil    :: proc() -> HDC          do return wCreateCompatibleDc(nil);
+createCompatibleDc_handle :: proc(hdc : HDC) -> HDC do return wCreateCompatibleDc(hdc);
+createCompatibleDc_nil    :: proc() -> HDC          do return wCreateCompatibleDc(nil);
 
 // -----------------------------------------------------------------------------------
 

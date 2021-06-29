@@ -6,6 +6,7 @@ import "core:runtime";
 import "core:strings";
 
 import "externals:winapi";
+import "externals:xinput";
 
 BitmapBuffer :: struct {
     info          : winapi.BitmapInfo,
@@ -25,18 +26,19 @@ main :: proc() {
     }
 
     using winapi;
-    currentInstance := cast(HInstance) getModuleHandle();
+    currentInstance := getModuleHandle();
+    xinput.load();
     resizeDibSection(&g_backbuffer, 1280, 720);
 
     windowClass : WndClassA = {
-        style      = cast(u32) (ClassStyles.HRedraw | ClassStyles.VRedraw | ClassStyles.OwnDC),
+        style      = ClassStyleSet{ .HRedraw, .VRedraw, .OwnDC },  // @Note: Equivalent to (ClassStyle.HRedraw | ClassStyle.VRedraw | ClassStyle.OwnDC)
         windowProc = delegateMainWindowProc,
         instance   = currentInstance,
         className  = "Win32WindowClass",
     };
 
     if atomHandle := registerClass(&windowClass); atomHandle == 0 {
-        debugStr := fmt.tprintf("RegisterClass: Atom 0x{:x}", atomHandle);
+        debugStr := fmt.tprintf("RegisterClass");
         dumpLastError(debugStr);
         return;
     }
@@ -44,7 +46,7 @@ main :: proc() {
     useDefault := cast(i32) CreateWindow.UseDefault;
     window := createWindow(
         windowClass.className, "CappuccinoEngine-v3",
-        cast(u32) (WindowStyle.OverlappedWindow | WindowStyle.Visible),
+        OverlappedWindowStyle | { .Visible },        // @Note: Equivalent to (WindowStyle.OverlappedWindow | WindowStyle.Visible)
         useDefault, useDefault, useDefault, useDefault,
         nil, nil, currentInstance, nil,
     );
@@ -60,7 +62,7 @@ main :: proc() {
     g_isRunning = true;
     for g_isRunning {
         if err := mem.free_all(context.temp_allocator); err != .None {
-            fmt.printf("Error freeing temp allocator: {}", err);
+            consolePrint("Error freeing temp allocator: {}", err);
         }
 
         message : Msg = ---;
@@ -70,13 +72,21 @@ main :: proc() {
             dispatchMessage(&message);
         }
 
+        for controllerIndex in 0..<xinput.UserMaxCount {
+            using controllerState : xinput.State = ---;
+            if success := xinput.getState(cast(u32) controllerIndex, &controllerState); success != .Success {
+                continue;
+            }
 
+            using xinput;
+            
+            xOffset -= cast(int) gamepad.thumbstickRX >> 10;
+            yOffset += cast(int) gamepad.thumbstickRY >> 10;
+        }
 
         width, height := getWindowDimensions(window);
-        renderWeirdGradient(g_backbuffer, xOffset, yOffset);
-        copyBufferToWindow(deviceContext, &g_backbuffer, width, height);
-
-        xOffset += 1; yOffset += 2;
+        renderWeirdGradient(&g_backbuffer, xOffset, yOffset);
+        copyBufferToWindow(&g_backbuffer, deviceContext, width, height);
     }
 }
 
@@ -87,27 +97,64 @@ mainWindowProc :: proc(window: winapi.HWnd, message: winapi.WindowMessage, wPara
     #partial switch message {
         case .Close:
             g_isRunning = false;
-            fmt.printf("{}\n", message);
-            outputDebugString(debugCString("{}\n", message));
+            consolePrint("Window message: {}\n", message);
         case .Destroy:
             g_isRunning = false;
-            fmt.printf("{}\n", message);
-            outputDebugString(debugCString("{}\n", message));
+            consolePrint("Window message: {}\n", message);
         case .ActivateApp:
-            fmt.printf("{}\n", message);
-            outputDebugString(debugCString("{}\n", message));
+            consolePrint("Window message: {}\n", message);
         case .Size:
             width, height := getWindowDimensions(window);
-            fmt.printf("{} ({}, {})\n", message, width, height);
-            outputDebugString(debugCString("{} ({}, {})\n", message, width, height));
+            consolePrint("Window message: {} ({}, {})\n", message, width, height);
         case .Paint:
             paint : PaintStruct = ---;
             paintDc := beginPaint(window, &paint);
             {
                 width, height := getWindowDimensions(window);
-                copyBufferToWindow(paintDc, &g_backbuffer, width, height);
+                copyBufferToWindow(&g_backbuffer, paintDc, width, height);
             }
             endPaint(window, &paint);
+
+        case .SysKeyDown: fallthrough;
+        case .SysKeyUp:   fallthrough;
+        case .KeyDown:    fallthrough;
+        case .KeyUp:
+            vkCode := cast(VirtualKey) wParam;
+            keyIsDown, keyWasDown := (lParam & (1 << 31)) == 0, (lParam & (1 << 30)) != 0;
+            altIsDown := (lParam & (1 << 29)) != 0;
+
+            if keyWasDown != keyIsDown {
+                #partial switch vkCode {
+                    case .W:
+                        fallthrough;
+                    case .A:
+                        fallthrough;
+                    case .S:
+                        fallthrough;
+                    case .D:
+                        fallthrough;
+                    case .Q:
+                        fallthrough;
+                    case .E:
+                        fallthrough;
+                    case .Up:
+                        fallthrough;
+                    case .Left:
+                        fallthrough;
+                    case .Down:
+                        fallthrough;
+                    case .Right:
+                        fallthrough;
+                    case .Escape:
+                        fallthrough;
+                    case .Space:
+                        if keyIsDown  do consolePrint("VkCode: {}, keyDown\n", vkCode);
+                        if keyWasDown do consolePrint("VkCode: {}, keyUp\n", vkCode);
+                    case .F4:
+                        if altIsDown && keyIsDown do g_isRunning = false;
+                }
+            }
+
         case:
             result = defWindowProc(window, message, wParam, lParam);
     }
@@ -115,7 +162,7 @@ mainWindowProc :: proc(window: winapi.HWnd, message: winapi.WindowMessage, wPara
     return;
 }
 
-renderWeirdGradient :: proc(using buffer : BitmapBuffer, blueOffset, greenOffset : int) {
+renderWeirdGradient :: proc(using buffer : ^BitmapBuffer, blueOffset, greenOffset : int) {
     bitmap := mem.byte_slice(memory, width * height * cast(int) bytesPerPixel);
     for y in 0..<height {
         for x in 0..<width {
@@ -133,7 +180,7 @@ resizeDibSection :: proc(using buffer : ^BitmapBuffer, bitmapWidth, bitmapHeight
     using winapi;
 
     if memory != nil {
-        virtualFree(memory, 0, cast(u32) MemoryFreeType.Release);
+        virtualFree(memory, 0, MemoryFreeTypeSet{ .Release });
     }
 
     width, height = bitmapWidth, bitmapHeight;
@@ -144,12 +191,11 @@ resizeDibSection :: proc(using buffer : ^BitmapBuffer, bitmapWidth, bitmapHeight
     info.planes = 1; info.bitCount = .Color32; info.compression = .Rgb;
 
     memorySize := width * height * cast(int) bytesPerPixel;
-
-    memory = virtualAlloc(nil, cast(uint) memorySize, cast(u32) MemoryAllocType.Commit, cast(u32) MemoryProtection.ReadWrite);
+    memory = virtualAlloc(nil, cast(uint) memorySize, MemoryAllocTypeSet{ .Commit }, MemoryProtectionTypeSet{ .ReadWrite });
     if memory == nil do dumpLastError("VirtualAlloc");
 }
 
-copyBufferToWindow :: proc(deviceContext : winapi.HDC, buffer : ^BitmapBuffer, windowWidth, windowHeight : int) {
+copyBufferToWindow :: proc(buffer : ^BitmapBuffer, deviceContext : winapi.HDC, windowWidth, windowHeight : int) {
     using winapi;
 
     if success := stretchDiBits(
@@ -169,13 +215,21 @@ getWindowDimensions :: proc(window : winapi.HWnd) -> (width, height : int) {
     return;
 }
 
-debugCString :: #force_inline proc(formatString : string, arguments : ..any) -> cstring {
-    debugStr  := fmt.tprintf(formatString, ..arguments);
-    return strings.clone_to_cstring(debugStr, context.temp_allocator);
+
+consolePrint :: #force_inline proc(formatString : string, args : ..any) {
+    fmt.printf(formatString, ..args);
+    winapi.outputDebugString(debugCString(formatString, ..args));
+
+    debugCString :: #force_inline proc(formatString : string, args : ..any) -> cstring {
+        debugStr  := fmt.tprintf(formatString, ..args);
+        return strings.clone_to_cstring(debugStr, context.temp_allocator);
+    }
 }
 
-dumpLastError :: #force_inline proc(error : string) {
+dumpLastError :: #force_inline proc(errString : string, args : ..any) {
     using winapi;
-    fmt.printf("Windows fail! {} \n", error);
-    fmt.printf("Last error: 0x{:x}\n", getLastError());
+    str := fmt.tprintf(errString, ..args);
+    err := getLastError();
+    consolePrint("Windows fail! {} \n", str);
+    consolePrint("Last error: {} (0x{:x})\n", err, cast(u32) err);
 }
