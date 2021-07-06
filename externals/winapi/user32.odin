@@ -299,7 +299,7 @@ WindowSize :: enum u32 {
 // -----------------------------------------------------------------------------------
 
 WindowStyle :: enum u32 {
-    Overlapped       = 0x0000_0000,  // 1 << -1
+    Overlapped       = 0x0000_0000,  // 1 << 32
     MaximizeBox      = 0x0001_0000,  // 1 << 16
     MinimizeBox      = 0x0002_0000,  // 1 << 17
     ThickFrame       = 0x0004_0000,  // 1 << 18
@@ -329,7 +329,7 @@ WindowStyle :: enum u32 {
 }
 
 WindowStyleFlags :: enum u32 {
-    Overlapped       = cast(u32) 32,  // 1 << -1
+    Overlapped       = 32,  // 0, expecting overflow
     MaximizeBox      = 16,  // 1 << 16
     MinimizeBox      = 17,  // 1 << 17
     ThickFrame       = 18,  // 1 << 18
@@ -375,6 +375,8 @@ Msg :: struct {
     private      : DWord,
 }
 
+// -----------------------------------------------------------------------------------
+
 PaintStruct :: struct {
     hdc           : HDC,
     erase         : Bool,
@@ -382,6 +384,19 @@ PaintStruct :: struct {
     restore       : Bool,
     includeUpdate : Bool,
     rgbReserved   : [32]byte,
+}
+
+// -----------------------------------------------------------------------------------
+
+@(private)
+WndClassBase :: struct {
+    style               : union { ClassStyleSet, u32 },
+    windowProc          : WndProc,
+    clsExtra, wndExtra  : i32,
+    instance            : HInstance,
+    icon                : HIcon,
+    cursor              : HCursor,
+    background          : HBrush,
 }
 
 WndClassA :: struct {
@@ -436,20 +451,26 @@ WndClassExW :: struct {
 // Overloads
 // -----------------------------------------------------------------------------------
 
-beginPaint       :: proc{ wBeginPaint       };
-endPaint         :: proc{ wEndPaint         };
-getClientRect    :: proc{ wGetClientRect    };
-getDc            :: proc{ wGetDc            };
-postQuitMessage  :: proc{ wPostQuitMessage  };
-releaseDc        :: proc{ wReleaseDc        };
-translateMessage :: proc{ wTranslateMessage };
+beginPaint       :: proc { wBeginPaint       };
+endPaint         :: proc { wEndPaint         };
+getClientRect    :: proc { wGetClientRect    };
+getDc            :: proc { wGetDc            };
+postQuitMessage  :: proc { wPostQuitMessage  };
+releaseDc        :: proc { wReleaseDc        };
+translateMessage :: proc { wTranslateMessage };
 
-createWindow     :: proc{ createWindowA_set, createWindowA_u32, createWindowW_set, createWindowW_u32, createWindowExA, createWindowExW };
-defWindowProc    :: proc{ defWindowProcA };
-dispatchMessage  :: proc{ dispatchMessageA };
-getMessage       :: proc{ getMessageA };
-peekMessage      :: proc{ peekMessageA };
-registerClass    :: proc{ registerClassA, registerClassW, registerClassExA, registerClassExW };
+defWindowProc    :: proc { defWindowProcA };
+dispatchMessage  :: proc { dispatchMessageA };
+getMessage       :: proc { getMessageA };
+peekMessage      :: proc { peekMessageA };
+registerClass    :: proc { registerClassA, registerClassW, registerClassExA, registerClassExW };
+
+createWindow :: proc {
+    createWindowA_set, createWindowA_u32,
+    createWindowW_set, createWindowW_u32,
+    createWindowExA_set, createWindowExA_u32,
+    createWindowExW_set, createWindowExW_u32,
+};
 
 // -----------------------------------------------------------------------------------
 // Procedures
@@ -462,7 +483,7 @@ createWindowA_set :: proc(
     parent : HWnd, menu : HMenu, instance : HInstance,
     param : rawptr) -> HWnd
 {
-    return createWindowExA(0, className, title, transmute(u32) style, x, y, w, h, parent, menu, instance, param);
+    return createWindowExA_u32(0, className, title, transmute(u32) style, x, y, w, h, parent, menu, instance, param);
 }
 
 createWindowA_u32 :: proc(
@@ -472,7 +493,7 @@ createWindowA_u32 :: proc(
     parent : HWnd, menu : HMenu, instance : HInstance,
     param : rawptr) -> HWnd
 {
-    return createWindowExA(0, className, title, style, x, y, w, h, parent, menu, instance, param);
+    return createWindowExA_u32(0, className, title, style, x, y, w, h, parent, menu, instance, param);
 }
 
 createWindowW_set :: proc(
@@ -482,7 +503,7 @@ createWindowW_set :: proc(
     parent : HWnd, menu : HMenu, instance : HInstance,
     param : rawptr) -> HWnd
 {
-    return createWindowExW(0, className, title, transmute(u32) style, x, y, w, h, parent, menu, instance, param);
+    return createWindowExW_u32(0, className, title, transmute(u32) style, x, y, w, h, parent, menu, instance, param);
 }
 
 createWindowW_u32 :: proc(
@@ -492,10 +513,21 @@ createWindowW_u32 :: proc(
     parent : HWnd, menu : HMenu, instance : HInstance,
     param : rawptr) -> HWnd
 {
-    return createWindowExW(0, className, title, style, x, y, w, h, parent, menu, instance, param);
+    return createWindowExW_u32(0, className, title, style, x, y, w, h, parent, menu, instance, param);
 }
 
-createWindowExA :: proc(
+createWindowExA_set :: proc(
+    extendedStyle: DWord,
+    className, title : cstring,
+    style : WindowStyleSet,
+    x, y, w, h : i32,
+    parent : HWnd, menu : HMenu, instance : HInstance,
+    param : rawptr) -> HWnd
+{
+    return wCreateWindowExA(extendedStyle, className, title, transmute(u32) style, x, y, w, h, parent, menu, instance, param);
+}
+
+createWindowExA_u32 :: proc(
     extendedStyle: DWord,
     className, title : cstring,
     style : DWord,
@@ -506,7 +538,18 @@ createWindowExA :: proc(
     return wCreateWindowExA(extendedStyle, className, title, style, x, y, w, h, parent, menu, instance, param);
 }
 
-createWindowExW :: proc(
+createWindowExW_set :: proc(
+    extendedStyle: DWord,
+    className, title : WString,
+    style : WindowStyleSet,
+    x, y, w, h : i32,
+    parent : HWnd, menu : HMenu, instance : HInstance,
+    param : rawptr) -> HWnd
+{
+    return wCreateWindowExW(extendedStyle, className, title, transmute(u32) style, x, y, w, h, parent, menu, instance, param);
+}
+
+createWindowExW_u32 :: proc(
     extendedStyle: DWord,
     className, title : WString,
     style : DWord,

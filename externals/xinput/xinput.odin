@@ -90,6 +90,7 @@ load :: proc() {
     xinputLib : HModule = ---;
     if xinputLib = loadLibrary(XInput1_4); xinputLib == nil {
         if xinputLib = loadLibrary(XInput1_3); xinputLib == nil do return;
+        // @Todo: Log version here
     }
 
     getState = cast(GetStateProc) getProcAddress(xinputLib, "XInputGetState");
@@ -98,5 +99,5 @@ load :: proc() {
 
 gamepadButtonPressed :: #force_inline proc(using gamepad : Gamepad, button : Button) -> bool do return (buttons & cast(u16) button) > 0;
 
-@(private) getStateStub :: proc "std" (userIndex : winapi.DWord, state : ^State)         -> winapi.Error do return .DeviceNotConnected;
-@(private) setStateStub :: proc "std" (userIndex : winapi.DWord, vibration : ^Vibration) -> winapi.Error do return .DeviceNotConnected;
+@(private) getStateStub : GetStateProc : proc "std" (userIndex : winapi.DWord, state : ^State)         -> winapi.Error do return .DeviceNotConnected;
+@(private) setStateStub : SetStateProc : proc "std" (userIndex : winapi.DWord, vibration : ^Vibration) -> winapi.Error do return .DeviceNotConnected;

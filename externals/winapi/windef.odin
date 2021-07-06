@@ -15,10 +15,11 @@ Error :: enum u32 {
 // Types
 // -----------------------------------------------------------------------------------
 
-Bool  :: b32;
-Word  :: u16;
-DWord :: u32;
-Atom  :: Word;
+Bool    :: b32;
+Word    :: u16;
+DWord   :: u32;
+HResult :: u32;
+Atom    :: Word;
 
 Handle    :: distinct rawptr;
 HBitmap   :: Handle;
@@ -32,6 +33,8 @@ HMenu     :: Handle;
 HModule   :: Handle;
 HWnd      :: Handle;
 
+Iid  :: Guid;
+
 LParam    :: distinct int;
 LResult   :: distinct int;
 
@@ -41,6 +44,13 @@ WString   :: distinct ^u16;
 // -----------------------------------------------------------------------------------
 // Structs
 // -----------------------------------------------------------------------------------
+
+Guid :: struct {
+    data1 : u32,
+    data2 : u16,
+    data3 : u16,
+    data4 : [8]u8,
+}
 
 Point :: struct {
     x, y : i32,

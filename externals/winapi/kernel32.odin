@@ -105,12 +105,12 @@ MemoryProtectionTypeSet :: bit_set[MemoryProtectionFlags; u32];
 // Overloads
 // -----------------------------------------------------------------------------------
 
-getModuleHandle   :: proc{ getModuleHandleA, getModuleHandleW, getModuleHandleA_nil };
-getProcAddress    :: proc{ wGetProcAddress };
-loadLibrary       :: proc{ loadLibraryA, loadLibraryW, loadLibraryExA_nil, loadLibraryExW_nil, loadLibraryExA_handle, loadLibraryExW_handle };
-outputDebugString :: proc{ outputDebugStringA, outputDebugStringW };
-virtualAlloc      :: proc{ virtualAlloc_Set, virtualAlloc_u32 };
-virtualFree       :: proc{ virtualFree_Set, virtualFree_u32 };
+getModuleHandle   :: proc { getModuleHandleA, getModuleHandleW, getModuleHandleA_nil };
+getProcAddress    :: proc { wGetProcAddress };
+loadLibrary       :: proc { loadLibraryA, loadLibraryW, loadLibraryExA_nil, loadLibraryExW_nil, loadLibraryExA_handle, loadLibraryExW_handle };
+outputDebugString :: proc { outputDebugStringA, outputDebugStringW };
+virtualAlloc      :: proc { virtualAlloc_Set, virtualAlloc_u32 };
+virtualFree       :: proc { virtualFree_Set, virtualFree_u32 };
 
 // -----------------------------------------------------------------------------------
 // Procedures

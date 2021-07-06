@@ -7,6 +7,7 @@ import "core:strings";
 
 import "externals:winapi";
 import "externals:xinput";
+import "externals:directSound";
 
 BitmapBuffer :: struct {
     info          : winapi.BitmapInfo,
@@ -17,7 +18,7 @@ BitmapBuffer :: struct {
 }
 
 g_backbuffer : BitmapBuffer = { bytesPerPixel = 4 };
-g_isRunning := false;
+g_isRunning  := false;
 
 main :: proc() {
     delegateMainWindowProc :: proc "std" (window: winapi.HWnd, message: winapi.WindowMessage, wParam: winapi.WParam, lParam: winapi.LParam) -> winapi.LResult {
@@ -27,6 +28,11 @@ main :: proc() {
 
     using winapi;
     currentInstance := getModuleHandle();
+    if success := comInitialize(nil); success != 0 {
+        dumpLastError("ComInitialize");
+        return;
+    }
+
     xinput.load();
     resizeDibSection(&g_backbuffer, 1280, 720);
 
@@ -56,6 +62,7 @@ main :: proc() {
         return;
     }
 
+    directSound.load(window, 48_000, 48_000 * size_of(i16) * 2);
     deviceContext := getDc(window);
     xOffset, yOffset : int;
 
@@ -215,21 +222,27 @@ getWindowDimensions :: proc(window : winapi.HWnd) -> (width, height : int) {
     return;
 }
 
-
-consolePrint :: #force_inline proc(formatString : string, args : ..any) {
-    fmt.printf(formatString, ..args);
-    winapi.outputDebugString(debugCString(formatString, ..args));
-
-    debugCString :: #force_inline proc(formatString : string, args : ..any) -> cstring {
-        debugStr  := fmt.tprintf(formatString, ..args);
-        return strings.clone_to_cstring(debugStr, context.temp_allocator);
-    }
-}
+// ----------------------------------------------------------------------------------------------
 
 dumpLastError :: #force_inline proc(errString : string, args : ..any) {
     using winapi;
     str := fmt.tprintf(errString, ..args);
     err := getLastError();
-    consolePrint("Windows fail! {} \n", str);
-    consolePrint("Last error: {} (0x{:x})\n", err, cast(u32) err);
+    consoleError("Windows fail! {} \n", str);
+    consoleError("Last error: {} (0x{:x})\n", err, cast(u32) err);
+}
+
+consolePrint :: #force_inline proc(formatString : string, args : ..any) {
+    fmt.printf(formatString, ..args);
+    winapi.outputDebugString(debugCString(formatString, ..args));
+}
+
+consoleError :: #force_inline proc(formatString : string, args : ..any) {
+    fmt.eprintf(formatString, ..args);
+    winapi.outputDebugString(debugCString(formatString, ..args));
+}
+
+debugCString :: #force_inline proc(formatString : string, args : ..any) -> cstring {
+    debugStr  := fmt.tprintf(formatString, ..args);
+    return strings.clone_to_cstring(debugStr, context.temp_allocator);
 }

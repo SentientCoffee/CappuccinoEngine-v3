@@ -77,7 +77,7 @@ RgbQuad :: struct {
 // Overloads
 // -----------------------------------------------------------------------------------
 
-createCompatibleDc :: proc{ createCompatibleDc_handle, createCompatibleDc_nil };
+createCompatibleDc :: proc { createCompatibleDc_handle, createCompatibleDc_nil };
 
 // -----------------------------------------------------------------------------------
 // Procedures
