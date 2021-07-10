@@ -21,7 +21,7 @@ g_backbuffer : BitmapBuffer = { bytesPerPixel = 4 };
 g_isRunning  := false;
 
 main :: proc() {
-    delegateMainWindowProc :: proc "std" (window: winapi.HWnd, message: winapi.WindowMessage, wParam: winapi.WParam, lParam: winapi.LParam) -> winapi.LResult {
+    delegateMainWindowProc :: proc "std" (window : winapi.HWnd, message : winapi.WindowMessage, wParam : winapi.WParam, lParam : winapi.LParam) -> winapi.LResult {
         context = runtime.default_context();
         return mainWindowProc(window, message, wParam, lParam);
     }
@@ -86,7 +86,7 @@ main :: proc() {
             }
 
             using xinput;
-            
+
             xOffset -= cast(int) gamepad.thumbstickRX >> 10;
             yOffset += cast(int) gamepad.thumbstickRY >> 10;
         }
@@ -97,7 +97,7 @@ main :: proc() {
     }
 }
 
-mainWindowProc :: proc(window: winapi.HWnd, message: winapi.WindowMessage, wParam: winapi.WParam, lParam: winapi.LParam) -> (result : winapi.LResult) {
+mainWindowProc :: proc(window : winapi.HWnd, message : winapi.WindowMessage, wParam : winapi.WParam, lParam : winapi.LParam) -> (result : winapi.LResult) {
     using winapi;
     result = 0;
 

@@ -137,7 +137,7 @@ VirtualKey :: enum u32 {
     NumRow7 = 0x37,
     NumRow8 = 0x38,
     NumRow9 = 0x39,
-    
+
     // @Note: ANSI char letter keys
     A = 0x41,
     B = 0x42,
@@ -316,7 +316,7 @@ WindowStyle :: enum u32 {
     Minimize         = 0x2000_0000,  // 1 << 29
     Child            = 0x4000_0000,  // 1 << 30
     Popup            = 0x8000_0000,  // 1 << 31
-    
+
     ChildWindow      = Child,
     Group            = MinimizeBox,
     Iconic           = Minimize,
@@ -622,11 +622,11 @@ foreign user32 {
     @(link_name="GetMessageA")      wGetMessageA      :: proc(message : ^Msg, handle : HWnd, messageFilterMin : u32, messageFilterMax : u32) -> Bool ---;
     @(link_name="GetMessageW")      wGetMessageW      :: proc(message : ^Msg, handle : HWnd, messageFilterMin : u32, messageFilterMax : u32) -> Bool ---;
     @(link_name="GetClientRect")    wGetClientRect    :: proc(hwnd: HWnd, rect: ^Rect) -> Bool ---;
-    
+
     @(link_name="PeekMessageA")     wPeekMessageA     :: proc(message : ^Msg, handle : HWnd, messageFilterMin : u32, messageFilterMax : u32, removeMessage : u32) -> Bool ---;
     @(link_name="PeekMessageW")     wPeekMessageW     :: proc(message : ^Msg, handle : HWnd, messageFilterMin : u32, messageFilterMax : u32, removeMessage : u32) -> Bool ---;
     @(link_name="PostQuitMessage")  wPostQuitMessage  :: proc(exitCode: i32) ---;
-    
+
     @(link_name="RegisterClassA")   wRegisterClassA   :: proc(windowClass : ^WndClassA)   -> Atom ---;
     @(link_name="RegisterClassW")   wRegisterClassW   :: proc(windowClass : ^WndClassW)   -> Atom ---;
     @(link_name="RegisterClassExA") wRegisterClassExA :: proc(windowClass : ^WndClassExA) -> Atom ---;
