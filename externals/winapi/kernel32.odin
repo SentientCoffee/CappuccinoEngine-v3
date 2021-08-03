@@ -109,8 +109,8 @@ getModuleHandle   :: proc { getModuleHandleA, getModuleHandleW, getModuleHandleA
 getProcAddress    :: proc { wGetProcAddress };
 loadLibrary       :: proc { loadLibraryA, loadLibraryW, loadLibraryExA_nil, loadLibraryExW_nil, loadLibraryExA_handle, loadLibraryExW_handle };
 outputDebugString :: proc { outputDebugStringA, outputDebugStringW };
-virtualAlloc      :: proc { virtualAlloc_Set, virtualAlloc_u32 };
-virtualFree       :: proc { virtualFree_Set, virtualFree_u32 };
+virtualAlloc      :: proc { virtualAlloc_set, virtualAlloc_u32 };
+virtualFree       :: proc { virtualFree_set, virtualFree_u32 };
 
 // -----------------------------------------------------------------------------------
 // Procedures
@@ -141,7 +141,7 @@ outputDebugStringW :: proc(message : WString) do wOutputDebugStringW(message);
 
 // -----------------------------------------------------------------------------------
 
-virtualAlloc_Set :: proc(address : rawptr, size : uint, allocType : MemoryAllocTypeSet, protection : MemoryProtectionTypeSet) -> rawptr {
+virtualAlloc_set :: proc(address : rawptr, size : uint, allocType : MemoryAllocTypeSet, protection : MemoryProtectionTypeSet) -> rawptr {
     return wVirtualAlloc(address, size, transmute(u32) allocType, transmute(u32) protection);
 }
 
@@ -151,7 +151,7 @@ virtualAlloc_u32 :: proc(address : rawptr, size : uint, allocType : DWord, prote
 
 // -----------------------------------------------------------------------------------
 
-virtualFree_Set :: proc(address : rawptr, size : uint, freeType : MemoryFreeTypeSet) -> Bool {
+virtualFree_set :: proc(address : rawptr, size : uint, freeType : MemoryFreeTypeSet) -> Bool {
     return wVirtualFree(address, size, transmute(u32) freeType);
 }
 

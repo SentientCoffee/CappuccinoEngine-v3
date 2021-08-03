@@ -31,15 +31,16 @@ UnknownVtbl :: struct {
 // Overloads
 // -----------------------------------------------------------------------------------
 
-comInitialize :: proc { comInitializeRaw, comInitializeEx };
+comInitialize   :: proc { comInitialize_nil, comInitialize_raw, comInitializeEx };
+comUninitialize :: proc { wCoUninitialize };
 
 // -----------------------------------------------------------------------------------
 // Procedures
 // -----------------------------------------------------------------------------------
 
-comInitializeRaw :: proc(reserved: rawptr)               -> HResult do return wCoInitialize(reserved);
-comInitializeEx  :: proc(reserved: rawptr, comInit: u64) -> HResult do return wCoInitializeEx(reserved, comInit);
-comUninitialize  :: proc(reserved: rawptr)                          do wCoUninitialize();
+comInitialize_nil :: proc()                                 -> HResult do return wCoInitialize(nil);
+comInitialize_raw :: proc(reserved : rawptr)                -> HResult do return wCoInitialize(reserved);
+comInitializeEx   :: proc(reserved : rawptr, comInit : u64) -> HResult do return wCoInitializeEx(reserved, comInit);
 
 // -----------------------------------------------------------------------------------
 // Imports
@@ -47,7 +48,7 @@ comUninitialize  :: proc(reserved: rawptr)                          do wCoUninit
 
 @(private="file", default_calling_convention="std")
 foreign ole32 {
-    @(link_name="CoInitialize")   wCoInitialize   :: proc(reserved: rawptr) -> HResult ---;
-    @(link_name="CoInitializeEx") wCoInitializeEx :: proc(reserved: rawptr, coInit: u64) -> HResult ---;
+    @(link_name="CoInitialize")   wCoInitialize   :: proc(reserved : rawptr) -> HResult ---;
+    @(link_name="CoInitializeEx") wCoInitializeEx :: proc(reserved : rawptr, coInit : u64) -> HResult ---;
     @(link_name="CoUninitialize") wCoUninitialize :: proc() ---;
 }

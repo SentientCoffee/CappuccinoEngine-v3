@@ -7,7 +7,7 @@ import "core:fmt";
 // Types
 // -----------------------------------------------------------------------------------
 
-CreateProc :: #type proc "std" (device : ^winapi.Guid, dsObject : ^DirectSound, unknownOuter : ^winapi.Unknown) -> winapi.HResult;
+CreateProc :: #type proc "std" (device : ^winapi.Guid, dsObject : ^^DirectSound, unknownOuter : ^winapi.Unknown) -> winapi.HResult;
 
 // -----------------------------------------------------------------------------------
 // Constants
@@ -199,7 +199,6 @@ WaveFormatEx :: struct {
 // Procedures
 // -----------------------------------------------------------------------------------
 
-
 load :: proc(window : winapi.HWnd, bufferSize : uint, samplesPerSecond : uint) {
     using winapi;
     
@@ -215,14 +214,14 @@ load :: proc(window : winapi.HWnd, bufferSize : uint, samplesPerSecond : uint) {
         return;
     }
 
-    dsObj : DirectSound = ---;
+    dsObj : ^DirectSound = ---;
     if success := create(nil, &dsObj, nil); success < 0 {
-        fmt.eprintf("DirectSound: Error {}\n", success);
+        fmt.printf("DirectSound: Error {}\n", success);
         return;
     }
 
-    if success := setCooperativeLevel(&dsObj, window, .Priority); success < 0 {
-        fmt.eprintf("DirectSound: Error {}\n", success);
+    if success := setCooperativeLevel(dsObj, window, .Priority); success < 0 {
+        fmt.printf("DirectSound: Error {}\n", success);
         return;
     }
     
@@ -232,7 +231,7 @@ load :: proc(window : winapi.HWnd, bufferSize : uint, samplesPerSecond : uint) {
         flags = cast(u32) BufferCaps.PrimaryBuffer,
     };
 
-    if success := createSoundBuffer(&dsObj, &primaryBuffer, &pBufferDesc); success < 0 {
+    if success := createSoundBuffer(dsObj, &primaryBuffer, &pBufferDesc); success < 0 {
         fmt.eprintf("DirectSound: Error {}\n", success);
         return;
     }
@@ -255,7 +254,7 @@ load :: proc(window : winapi.HWnd, bufferSize : uint, samplesPerSecond : uint) {
     }
 
     s : cstring = "DirectSound: Primary buffer format set!\n";
-    fmt.printf(string(s));
+    fmt.printf(cast(string) s);
     outputDebugStringA(s);
 
     secondaryBuffer : ^Buffer = ---;
@@ -265,13 +264,13 @@ load :: proc(window : winapi.HWnd, bufferSize : uint, samplesPerSecond : uint) {
         bufferBytes = cast(u32) bufferSize,
         waveFormat  = &waveFormat,
     };
-    if success := createSoundBuffer(&dsObj, &secondaryBuffer, &sBufferDesc); success < 0 {
+    if success := createSoundBuffer(dsObj, &secondaryBuffer, &sBufferDesc); success < 0 {
         fmt.eprintf("DirectSound: Error {}\n", success);
         return;
     }
 
-    s = "DirectSound: Secondary buffer successfully created!";
-    fmt.printf(string(s));
+    s = "DirectSound: Secondary buffer successfully created!\n";
+    fmt.printf(cast(string) s);
     outputDebugStringA(s);
 }
 

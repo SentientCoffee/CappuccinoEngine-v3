@@ -105,14 +105,18 @@ mainWindowProc :: proc(window : winapi.HWnd, message : winapi.WindowMessage, wPa
         case .Close:
             g_isRunning = false;
             consolePrint("Window message: {}\n", message);
+
         case .Destroy:
             g_isRunning = false;
             consolePrint("Window message: {}\n", message);
+
         case .ActivateApp:
             consolePrint("Window message: {}\n", message);
+
         case .Size:
             width, height := getWindowDimensions(window);
             consolePrint("Window message: {} ({}, {})\n", message, width, height);
+
         case .Paint:
             paint : PaintStruct = ---;
             paintDc := beginPaint(window, &paint);

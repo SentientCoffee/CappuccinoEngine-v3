@@ -33,7 +33,7 @@ HMenu     :: Handle;
 HModule   :: Handle;
 HWnd      :: Handle;
 
-Iid  :: Guid;
+Iid :: Guid;
 
 LParam    :: distinct int;
 LResult   :: distinct int;

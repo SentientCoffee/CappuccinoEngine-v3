@@ -93,14 +93,14 @@ createDibSection :: proc(
     bitmapInfo : ^BitmapInfo, usage : DibUsage, rawBits : ^rawptr,
     section : Handle, offset : DWord) -> HBitmap
 {
-    return wCreateDibSection(hdc, bitmapInfo, u32(usage), rawBits, section, offset);
+    return wCreateDibSection(hdc, bitmapInfo, cast(u32) usage, rawBits, section, offset);
 }
 
 // -----------------------------------------------------------------------------------
 
 deleteObject :: proc(objectHandle : HGdiObj) -> Bool do return wDeleteObject(objectHandle);
 
-patBlt :: proc(hdc : HDC, x, y, width, height : i32, rasterOp : RasterOperation) -> Bool do return wPatBlt(hdc, x, y, width, height, u32(rasterOp));
+patBlt :: proc(hdc : HDC, x, y, width, height : i32, rasterOp : RasterOperation) -> Bool do return wPatBlt(hdc, x, y, width, height, cast(u32) rasterOp);
 
 // -----------------------------------------------------------------------------------
 
@@ -111,7 +111,7 @@ stretchDiBits :: proc(
     rawBits : rawptr, bitmapInfo : ^BitmapInfo,
     usage : DibUsage, rasterOp : RasterOperation) -> i32
 {
-    return wStretchDiBits(hdc, destX, destY, destWidth, destHeight, srcX, srcY, srcWidth, srcHeight, rawBits, bitmapInfo, u32(usage), u32(rasterOp));
+    return wStretchDiBits(hdc, destX, destY, destWidth, destHeight, srcX, srcY, srcWidth, srcHeight, rawBits, bitmapInfo, cast(u32) usage, cast(u32) rasterOp);
 }
 
 // -----------------------------------------------------------------------------------
