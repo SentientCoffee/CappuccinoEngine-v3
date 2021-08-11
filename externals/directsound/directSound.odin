@@ -1,13 +1,14 @@
 package directSound;
 
-import "externals:winapi";
 import "core:fmt";
+import "core:strings";
+import "externals:winapi";
 
 // -----------------------------------------------------------------------------------
 // Types
 // -----------------------------------------------------------------------------------
 
-CreateProc :: #type proc "std" (device : ^winapi.Guid, dsObject : ^^DirectSound, unknownOuter : ^winapi.Unknown) -> winapi.HResult;
+@(private) CreateProc :: #type proc "std" (device : ^winapi.Guid, dsObject : ^^DirectSound, unknownOuter : ^winapi.Unknown) -> winapi.HResult;
 
 // -----------------------------------------------------------------------------------
 // Constants
@@ -17,6 +18,36 @@ CreateProc :: #type proc "std" (device : ^winapi.Guid, dsObject : ^^DirectSound,
 
 // -----------------------------------------------------------------------------------
 // Enums
+// -----------------------------------------------------------------------------------
+
+Error :: enum u32 {
+    Ok                  = 0x0000_0000,
+    OutOfMemory         = 0x0000_0007,
+    NoVirtualization    = 0x0878_000A,
+    Incomplete          = 0x0878_0014,
+    NoInterface         = 0x0000_01AE,
+    Unsupported         = 0x8000_4001,
+    Generic             = 0x8000_4005,
+    AccessDenied        = 0x8007_0005,
+    InvalidParam        = 0x8007_0057,
+    Allocated           = 0x8878_000A,
+    ControlUnavailable  = 0x8878_001E,
+    InvalidCall         = 0x8878_0032,
+    PriorityLevelNeeded = 0x8878_0046,
+    BadFormat           = 0x8878_0064,
+    NoDriver            = 0x8878_0078,
+    AlreadyInitialized  = 0x8878_0082,
+    BufferLost          = 0x8878_0096,
+    OtherAppHasPriority = 0x8878_00A0,
+    Uninitialized       = 0x8878_00AA,
+    BufferTooSmall      = 0x8878_10B4,
+    Ds8Required         = 0x8878_10BE,
+    SendLoop            = 0x8878_10C8,
+    BadSendBufferGuid   = 0x8878_10D2,
+    FxUnavailable       = 0x8878_10DC,
+    ObjectNotFound      = 0x8878_1161,
+}
+
 // -----------------------------------------------------------------------------------
 
 CooperativeLevel :: enum u32 {
@@ -47,11 +78,23 @@ BufferCaps :: enum u32 {
     TruePlayPosition      = 0x0000_8000,  // 1 << 15
 }
 
+BufferLock :: enum u32 {
+    FromWriteCursor = 0x0000_0001,
+    EntireBuffer    = 0x0000_0002,
+}
+
+BufferLockFlags :: enum u32 {
+    FromWriteCursor = 0,
+    EntireBuffer    = 1,
+}
+
+BufferLockSet :: bit_set[BufferLockFlags; u32];
+
 // -----------------------------------------------------------------------------------
 
 WaveFormatTags :: enum u16 {
     Unknown = 0,
-    Pcm = 1,
+    Pcm     = 1,
 }
 
 // -----------------------------------------------------------------------------------
@@ -196,92 +239,127 @@ WaveFormatEx :: struct {
 }
 
 // -----------------------------------------------------------------------------------
+// Overloads
+// -----------------------------------------------------------------------------------
+
+lockBuffer :: proc { lockBuffer_set, lockBuffer_u32 };
+
+// -----------------------------------------------------------------------------------
 // Procedures
 // -----------------------------------------------------------------------------------
 
-load :: proc(window : winapi.HWnd, bufferSize : uint, samplesPerSecond : uint) {
-    using winapi;
-    
-    create : CreateProc = nil;
-    dsoundLib : HModule = ---;
-    if dsoundLib = loadLibrary(DSoundDLL); dsoundLib == nil {
-        // @Todo: Log error here
-        return;
+create :: proc() -> (dsObj : ^DirectSound) {
+    dsoundLib : winapi.HModule = ---;
+    if dsoundLib = winapi.loadLibrary(DSoundDLL); dsoundLib == nil {
+        dsoundError("loadLibrary (dsoundLib == {})", dsoundLib);
+        return nil;
     }
 
-    if create = cast(CreateProc) getProcAddress(dsoundLib, "DirectSoundCreate"); create == nil {
-        // @Todo: Log error here
-        return;
+    dsoundLog("Loaded {}", DSoundDLL);
+
+    createProc : CreateProc = nil;
+    if createProc = cast(CreateProc) winapi.getProcAddress(dsoundLib, "DirectSoundCreate"); createProc == nil {
+        dsoundError("getProcAddress (createProc == {})", createProc);
+        return nil;
     }
 
-    dsObj : ^DirectSound = ---;
-    if success := create(nil, &dsObj, nil); success < 0 {
-        fmt.printf("DirectSound: Error {}\n", success);
-        return;
+    if success := createProc(nil, &dsObj, nil); cast(Error) success != .Ok {
+        dsoundError("directSoundCreate (success == {})", success);
+        return nil;
     }
 
-    if success := setCooperativeLevel(dsObj, window, .Priority); success < 0 {
-        fmt.printf("DirectSound: Error {}\n", success);
-        return;
-    }
-    
-    primaryBuffer : ^Buffer = ---;
-    pBufferDesc : BufferDescription = {
-        size  = size_of(BufferDescription),
-        flags = cast(u32) BufferCaps.PrimaryBuffer,
-    };
+    dsoundLog("Loaded DirectSound object:\n{}", dsObj^);
 
-    if success := createSoundBuffer(dsObj, &primaryBuffer, &pBufferDesc); success < 0 {
-        fmt.eprintf("DirectSound: Error {}\n", success);
-        return;
-    }
-    
-    ch, bps : u16 = 2, 16; // 2-channel, 16-bit audio
-    block := ch * bps / 8;
-    waveFormat : WaveFormatEx = {
-        formatTag         = cast(u16) WaveFormatTags.Pcm,
-        channels          = ch,
-        samplesPerSecond  = cast(u32) samplesPerSecond,
-        avgBytesPerSecond = cast(u32) (block * cast(u16) samplesPerSecond),
-        bitsPerSample     = bps,
-        blockAlign        = block,
-        size              = 0,
-    };
-    
-    if success := setBufferFormat(primaryBuffer, &waveFormat); success < 0 {
-        fmt.eprintf("DirectSound: Error {}\n", success);
-        return;
-    }
-
-    s : cstring = "DirectSound: Primary buffer format set!\n";
-    fmt.printf(cast(string) s);
-    outputDebugStringA(s);
-
-    secondaryBuffer : ^Buffer = ---;
-    sBufferDesc : BufferDescription = {
-        size        = size_of(BufferDescription),
-        flags       = 0,
-        bufferBytes = cast(u32) bufferSize,
-        waveFormat  = &waveFormat,
-    };
-    if success := createSoundBuffer(dsObj, &secondaryBuffer, &sBufferDesc); success < 0 {
-        fmt.eprintf("DirectSound: Error {}\n", success);
-        return;
-    }
-
-    s = "DirectSound: Secondary buffer successfully created!\n";
-    fmt.printf(cast(string) s);
-    outputDebugStringA(s);
+    return;
 }
 
-setBufferFormat :: #force_inline proc(buffer : ^Buffer, format : ^WaveFormatEx) -> winapi.HResult {
-    return buffer->setFormat(format);
+// DirectSound member procs
+// -----------------------------------------------------------------------------------
+
+setCooperativeLevel :: #force_inline proc(dsObj : ^DirectSound, window : winapi.HWnd, level : CooperativeLevel) -> Error {
+    return cast(Error) dsObj->setCooperativeLevel(window, cast(u32) level);
 }
 
-setCooperativeLevel :: #force_inline proc(dsObj : ^DirectSound, window : winapi.HWnd, level : CooperativeLevel) -> winapi.HResult {
-    return dsObj->setCooperativeLevel(window, cast(u32) level);
+createSoundBuffer :: #force_inline proc(dsObj : ^DirectSound, buffer : ^^Buffer, description : ^BufferDescription) -> Error {
+    return cast(Error) dsObj->createSoundBuffer(description, buffer, nil);
 }
 
-createSoundBuffer :: #force_inline proc(dsObj : ^DirectSound, buffer : ^^Buffer, description : ^BufferDescription) -> winapi.HResult {
-    return dsObj->createSoundBuffer(description, buffer, nil);
+// Buffer member procs
+// -----------------------------------------------------------------------------------
+
+getCurrentBufferPosition :: #force_inline proc(buffer : ^Buffer) -> (currentPlayCursor, currentWriteCursor : winapi.DWord, err : Error) {
+    currentPlayCursor, currentWriteCursor = 0, 0;
+    e := buffer->getCurrentPosition(&currentPlayCursor, &currentWriteCursor);
+    err = cast(Error) e;
+    return;
+}
+
+lockBuffer_set :: #force_inline proc(
+    buffer : ^Buffer,
+    writePointer : winapi.DWord,
+    bytesToWrite : winapi.DWord,
+    flags : BufferLockSet,
+) -> (
+    err : Error,
+    audioRegion1 : rawptr, audioRegion1Size : winapi.DWord,
+    audioRegion2 : rawptr, audioRegion2Size : winapi.DWord,
+)
+{
+    return lockBuffer_u32(buffer, writePointer, bytesToWrite, transmute(u32) flags);
+}
+
+lockBuffer_u32 :: proc(
+    buffer : ^Buffer,
+    writePointer : winapi.DWord,
+    bytesToWrite : winapi.DWord,
+    flags : winapi.DWord = 0,
+) -> (
+    err : Error,
+    audioRegion1 : rawptr, audioRegion1Size : winapi.DWord,
+    audioRegion2 : rawptr, audioRegion2Size : winapi.DWord,
+) {
+    audioRegion1 = nil; audioRegion1Size = 0;
+    audioRegion2 = nil; audioRegion2Size = 0;
+    err = .ObjectNotFound;
+
+    if(buffer == nil) do return;
+
+    e := buffer->lock(
+        writePointer, bytesToWrite,
+        &audioRegion1, &audioRegion1Size,
+        &audioRegion2, &audioRegion2Size,
+        flags,
+    );
+
+    err = cast(Error) e;
+    return;
+}
+
+setBufferFormat :: #force_inline proc(buffer : ^Buffer, format : ^WaveFormatEx) -> Error {
+    return cast(Error) buffer->setFormat(format);
+}
+
+// -----------------------------------------------------------------------------------
+
+@(private)
+dsoundLog :: #force_inline proc(errString : string, args : ..any) {
+    str := fmt.tprintf(errString, ..args);
+    consolePrint("[DirectSound]: {}\n", str);
+}
+
+@(private)
+dsoundError :: #force_inline proc(errString : string, args : ..any) {
+    str := fmt.tprintf(errString, ..args);
+    consolePrint("[DirectSound] Error: {}\n", str);
+}
+
+@(private)
+consolePrint :: #force_inline proc(formatString : string, args : ..any) {
+    fmt.printf(formatString, ..args);
+    winapi.outputDebugString(debugCString(formatString, ..args));
+
+    debugCString :: #force_inline proc(formatString : string, args : ..any) -> cstring {
+        debugStr  := fmt.tprintf(formatString, ..args);
+        return strings.clone_to_cstring(debugStr, context.temp_allocator);
+    }
 }

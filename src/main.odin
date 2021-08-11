@@ -19,6 +19,7 @@ BitmapBuffer :: struct {
 
 g_backbuffer : BitmapBuffer = { bytesPerPixel = 4 };
 g_isRunning  := false;
+g_soundBuffer : ^directSound.Buffer;
 
 main :: proc() {
     delegateMainWindowProc :: proc "std" (window : winapi.HWnd, message : winapi.WindowMessage, wParam : winapi.WParam, lParam : winapi.LParam) -> winapi.LResult {
@@ -28,7 +29,7 @@ main :: proc() {
 
     using winapi;
     currentInstance := getModuleHandle();
-    if success := comInitialize(nil); success != 0 {
+    if success := comInitialize(); success != 0 {
         dumpLastError("ComInitialize");
         return;
     }
@@ -62,37 +63,73 @@ main :: proc() {
         return;
     }
 
-    directSound.load(window, 48_000, 48_000 * size_of(i16) * 2);
     deviceContext := getDc(window);
-    xOffset, yOffset : int;
 
+    samplesPerSecond : uint = 48_000;
+    middleCFrequency : uint = 256;  // Middle C frequency is 261.625565 Hz
+    squareWaveCounter, squareWavePeriod : uint = 0, samplesPerSecond / middleCFrequency;
+    bytesPerSample : uint = size_of(i16) * 2;
+    g_soundBuffer = directSoundLoad(window, samplesPerSecond, samplesPerSecond * bytesPerSample);
+
+    xOffset, yOffset : int;
     g_isRunning = true;
     for g_isRunning {
         if err := mem.free_all(context.temp_allocator); err != .None {
-            consolePrint("Error freeing temp allocator: {}", err);
+            consoleError("Temp allocator free all", "err == {}", err);
         }
 
         message : Msg = ---;
         for peekMessage(&message, nil, 0, 0, cast(u32) PeekMessage.Remove) {
-            if message.message == WindowMessage.Quit do g_isRunning = false;
+            if message.message == .Quit do g_isRunning = false;
             translateMessage(&message);
             dispatchMessage(&message);
         }
 
-        for controllerIndex in 0..<xinput.UserMaxCount {
+        for controllerIndex in 0 ..< xinput.UserMaxCount {
+            using xinput;
+
             using controllerState : xinput.State = ---;
             if success := xinput.getState(cast(u32) controllerIndex, &controllerState); success != .Success {
                 continue;
             }
 
-            using xinput;
-
             xOffset -= cast(int) gamepad.thumbstickRX >> 10;
             yOffset += cast(int) gamepad.thumbstickRY >> 10;
         }
 
-        width, height := getWindowDimensions(window);
         renderWeirdGradient(&g_backbuffer, xOffset, yOffset);
+
+        writePointer, bytesToWrite : u32 = 0, 0;
+
+        success, region1, region1Size, region2, region2Size := directSound.lockBuffer(g_soundBuffer, writePointer, bytesToWrite);
+        if success != .Ok {
+            consoleError("DirectSound", "lockBuffer (success == {})", success);
+        }
+        else {
+            sampleOut := mem.slice_ptr(cast(^i16) region1, cast(int) region1Size);
+            sampleCount := region1Size / cast(u32) bytesPerSample;
+            for i in 0 ..< sampleCount {
+                index := i * 2;
+                if squareWaveCounter <= 0 do squareWaveCounter = squareWavePeriod;
+                sampleValue : i16 = squareWaveCounter > squareWavePeriod / 2 ? 16_000 : -16_000;
+                sampleOut[index    ] = sampleValue;
+                sampleOut[index + 1] = sampleValue;
+                squareWaveCounter -= 1;
+            }
+
+            sampleOut = mem.slice_ptr(cast(^i16) region2, cast(int) region2Size);
+            sampleCount = region2Size / cast(u32) bytesPerSample;
+            for i in 0 ..< sampleCount {
+                index := i * 2;
+                if squareWaveCounter <= 0 do squareWaveCounter = squareWavePeriod;
+                sampleValue : i16 = squareWaveCounter > squareWavePeriod / 2 ? 16_000 : -16_000;
+                sampleOut[index    ] = sampleValue;
+                sampleOut[index + 1] = sampleValue;
+                squareWaveCounter -= 1;
+            }
+        }
+
+        width, height := getWindowDimensions(window);
         copyBufferToWindow(&g_backbuffer, deviceContext, width, height);
     }
 }
@@ -104,18 +141,18 @@ mainWindowProc :: proc(window : winapi.HWnd, message : winapi.WindowMessage, wPa
     #partial switch message {
         case .Close:
             g_isRunning = false;
-            consolePrint("Window message: {}\n", message);
+            consolePrint("WindowMessage", "{}", message);
 
         case .Destroy:
             g_isRunning = false;
-            consolePrint("Window message: {}\n", message);
+            consolePrint("WindowMessage", "{}", message);
 
         case .ActivateApp:
-            consolePrint("Window message: {}\n", message);
+            consolePrint("WindowMessage", "{}", message);
 
         case .Size:
             width, height := getWindowDimensions(window);
-            consolePrint("Window message: {} ({}, {})\n", message, width, height);
+            consolePrint("WindowMessage", "{} ({}, {})", message, width, height);
 
         case .Paint:
             paint : PaintStruct = ---;
@@ -159,8 +196,8 @@ mainWindowProc :: proc(window : winapi.HWnd, message : winapi.WindowMessage, wPa
                     case .Escape:
                         fallthrough;
                     case .Space:
-                        if keyIsDown  do consolePrint("VkCode: {}, keyDown\n", vkCode);
-                        if keyWasDown do consolePrint("VkCode: {}, keyUp\n", vkCode);
+                        if keyIsDown  do consolePrint("VkCode", "{}, keyDown", vkCode);
+                        if keyWasDown do consolePrint("VkCode", "{}, keyUp", vkCode);
                     case .F4:
                         if altIsDown && keyIsDown do g_isRunning = false;
                 }
@@ -173,10 +210,68 @@ mainWindowProc :: proc(window : winapi.HWnd, message : winapi.WindowMessage, wPa
     return;
 }
 
+directSoundLoad :: proc(window : winapi.HWnd, samplesPerSecond : uint, bufferSize : uint) -> (buffer : ^directSound.Buffer) {
+    using directSound;
+    buffer = nil;
+    dsObj := create();
+
+    if success := setCooperativeLevel(dsObj, window, .Priority); success != .Ok {
+        consoleError("DirectSound", "setCooperativeLevel (success == {})", success);
+        return nil;
+    }
+
+    primaryBuffer : ^Buffer;
+    pBufferDesc : BufferDescription = {
+        size  = size_of(BufferDescription),
+        flags = cast(u32) BufferCaps.PrimaryBuffer,
+    };
+
+    if success := createSoundBuffer(dsObj, &primaryBuffer, &pBufferDesc); success != .Ok {
+        consoleError("DirectSound", "createSoundBuffer (primary) (success == {})", success);
+        return nil;
+    }
+
+    consolePrint("DirectSound", "Primary buffer successfully created!");
+
+    ch, bps : u16 = 2, 16; // 2-channel, 16-bit audio
+    block := ch * bps / 8;
+    waveFormat : WaveFormatEx = {
+        formatTag         = cast(u16) WaveFormatTags.Pcm,
+        channels          = ch,
+        samplesPerSecond  = cast(u32) samplesPerSecond,
+        avgBytesPerSecond = cast(u32) (cast(uint) block * samplesPerSecond),
+        bitsPerSample     = bps,
+        blockAlign        = block,
+        size              = 0,
+    };
+
+    if success := setBufferFormat(primaryBuffer, &waveFormat); success != .Ok {
+        consoleError("DirectSound", "setBufferFormat (primary) (success == {})", success);
+        return nil;
+    }
+
+    consolePrint("DirectSound", "Primary buffer format set!");
+
+    sBufferDesc : BufferDescription = {
+        size        = size_of(BufferDescription),
+        flags       = 0,
+        bufferBytes = cast(u32) bufferSize,
+        waveFormat  = &waveFormat,
+    };
+
+    if success := createSoundBuffer(dsObj, &buffer, &sBufferDesc); success != .Ok {
+        consoleError("DirectSound", "createSoundBuffer (secondary) (success == {})", success);
+        return nil;
+    }
+
+    consolePrint("DirectSound", "Secondary buffer successfully created!");
+    return buffer;
+}
+
 renderWeirdGradient :: proc(using buffer : ^BitmapBuffer, blueOffset, greenOffset : int) {
     bitmap := mem.byte_slice(memory, width * height * cast(int) bytesPerPixel);
-    for y in 0..<height {
-        for x in 0..<width {
+    for y in 0 ..< height {
+        for x in 0 ..< width {
             index := y * pitch + (x * cast(int) bytesPerPixel);
             r, g, b, a : u8 = 0, cast(u8) (y + greenOffset), cast(u8) (x + blueOffset), 0;
             bitmap[index    ] = b;
@@ -202,7 +297,7 @@ resizeDibSection :: proc(using buffer : ^BitmapBuffer, bitmapWidth, bitmapHeight
     info.planes = 1; info.bitCount = .Color32; info.compression = .Rgb;
 
     memorySize := width * height * cast(int) bytesPerPixel;
-    memory = virtualAlloc(nil, cast(uint) memorySize, MemoryAllocTypeSet{ .Commit }, MemoryProtectionTypeSet{ .ReadWrite });
+    memory = virtualAlloc(nil, cast(uint) memorySize, MemoryAllocTypeSet{ .Reserve, .Commit }, MemoryProtectionTypeSet{ .ReadWrite });
     if memory == nil do dumpLastError("VirtualAlloc");
 }
 
@@ -232,18 +327,19 @@ dumpLastError :: #force_inline proc(errString : string, args : ..any) {
     using winapi;
     str := fmt.tprintf(errString, ..args);
     err := getLastError();
-    consoleError("Windows fail! {} \n", str);
-    consoleError("Last error: {} (0x{:x})\n", err, cast(u32) err);
+    consolePrint("Windows", "{}\nLast error: {} (0x{:x})\n", str, err, cast(u32) err);
 }
 
-consolePrint :: #force_inline proc(formatString : string, args : ..any) {
-    fmt.printf(formatString, ..args);
-    winapi.outputDebugString(debugCString(formatString, ..args));
+consolePrint :: #force_inline proc(ident : string, formatString : string, args : ..any) {
+    str := fmt.tprintf("[{}]: {}\n", ident, formatString);
+    fmt.printf(str, ..args);
+    winapi.outputDebugString(debugCString(str, ..args));
 }
 
-consoleError :: #force_inline proc(formatString : string, args : ..any) {
-    fmt.eprintf(formatString, ..args);
-    winapi.outputDebugString(debugCString(formatString, ..args));
+consoleError :: #force_inline proc(ident : string, formatString : string, args : ..any) {
+    str := fmt.tprintf("{} fail! {}\n", ident, formatString);
+    fmt.printf(str, ..args);
+    winapi.outputDebugString(debugCString(str, ..args));
 }
 
 debugCString :: #force_inline proc(formatString : string, args : ..any) -> cstring {

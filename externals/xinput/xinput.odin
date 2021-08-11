@@ -1,5 +1,7 @@
 package xinput;
 
+import "core:fmt";
+import "core:strings";
 import "externals:winapi";
 
 // -----------------------------------------------------------------------------------
@@ -88,16 +90,55 @@ setState := setStateStub;
 load :: proc() {
     using winapi;
     xinputLib : HModule = ---;
-    if xinputLib = loadLibrary(XInput1_4); xinputLib == nil {
-        if xinputLib = loadLibrary(XInput1_3); xinputLib == nil do return;
-        // @Todo: Log version here
-    }
+    xinputVersion : string = XInput1_4;
 
-    getState = cast(GetStateProc) getProcAddress(xinputLib, "XInputGetState");
-    setState = cast(SetStateProc) getProcAddress(xinputLib, "XInputSetState");
+    if xinputLib = loadLibrary(XInput1_4); xinputLib == nil {
+        if xinputLib = loadLibrary(XInput1_3); xinputLib == nil {
+            xinputError("loadLibrary (xinputLib == {})", xinputLib);
+            return;
+        }
+        xinputVersion = XInput1_3;
+    }
+    xinputLog("Loaded {}", xinputVersion);
+
+    if getState = cast(GetStateProc) getProcAddress(xinputLib, "XInputGetState"); getState == nil {
+        xinputError("getProcAddress (getState == {})", getState);
+        getState = getStateStub;
+    }
+    if setState = cast(SetStateProc) getProcAddress(xinputLib, "XInputSetState"); setState == nil {
+        xinputError("getProcAddress (getState == {})", setState);
+        setState = setStateStub;
+    }
 }
 
-gamepadButtonPressed :: #force_inline proc(using gamepad : Gamepad, button : Button) -> bool do return (buttons & cast(u16) button) > 0;
+gamepadButtonPressed :: #force_inline proc(using gamepad : Gamepad, button : Button) -> bool {
+    return (buttons & cast(u16) button) > 0;
+}
+
+// -----------------------------------------------------------------------------------
 
 @(private) getStateStub : GetStateProc : proc "std" (userIndex : winapi.DWord, state : ^State)         -> winapi.Error do return .DeviceNotConnected;
 @(private) setStateStub : SetStateProc : proc "std" (userIndex : winapi.DWord, vibration : ^Vibration) -> winapi.Error do return .DeviceNotConnected;
+
+@(private)
+xinputLog :: #force_inline proc(errString : string, args : ..any) {
+    str := fmt.tprintf(errString, ..args);
+    consolePrint("[XInput]: {}\n", str);
+}
+
+@(private)
+xinputError :: #force_inline proc(errString : string, args : ..any) {
+    str := fmt.tprintf(errString, ..args);
+    consolePrint("[XInput] Error: {}\n", str);
+}
+
+@(private)
+consolePrint :: #force_inline proc(formatString : string, args : ..any) {
+    fmt.printf(formatString, ..args);
+    winapi.outputDebugString(debugCString(formatString, ..args));
+
+    debugCString :: #force_inline proc(formatString : string, args : ..any) -> cstring {
+        debugStr  := fmt.tprintf(formatString, ..args);
+        return strings.clone_to_cstring(debugStr, context.temp_allocator);
+    }
+}
