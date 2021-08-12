@@ -50,15 +50,6 @@ Error :: enum u32 {
 
 // -----------------------------------------------------------------------------------
 
-CooperativeLevel :: enum u32 {
-    Normal       = 1,
-    Priority     = 2,
-    Exclusive    = 3,
-    WritePrimary = 4,
-}
-
-// -----------------------------------------------------------------------------------
-
 BufferCaps :: enum u32 {
     PrimaryBuffer         = 0x0000_0001,  // 1 << 0
     Static                = 0x0000_0002,  // 1 << 1
@@ -78,17 +69,50 @@ BufferCaps :: enum u32 {
     TruePlayPosition      = 0x0000_8000,  // 1 << 15
 }
 
+// -----------------------------------------------------------------------------------
+
 BufferLock :: enum u32 {
-    FromWriteCursor = 0x0000_0001,
-    EntireBuffer    = 0x0000_0002,
+    FromWriteCursor = 0x0000_0001,  // 1 << 0
+    EntireBuffer    = 0x0000_0002,  // 1 << 1
 }
 
 BufferLockFlags :: enum u32 {
-    FromWriteCursor = 0,
-    EntireBuffer    = 1,
+    FromWriteCursor = 0,  // 1 << 0
+    EntireBuffer    = 1,  // 1 << 1
 }
 
 BufferLockSet :: bit_set[BufferLockFlags; u32];
+
+// -----------------------------------------------------------------------------------
+
+BufferPlay :: enum u32 {
+    Looping             = 0x0000_00001,  // 1 << 0
+    LocalHardware       = 0x0000_00002,  // 1 << 1
+    LocalSoftware       = 0x0000_00004,  // 1 << 2
+    TerminateByTime     = 0x0000_00008,  // 1 << 3
+    TerminateByDistance = 0x0000_00010,  // 1 << 4
+    TerminateByPriority = 0x0000_00020,  // 1 << 5
+}
+
+BufferPlayFlags :: enum u32 {
+    Looping             = 0,  // 1 << 0
+    LocalHardware       = 1,  // 1 << 1
+    LocalSoftware       = 2,  // 1 << 2
+    TerminateByTime     = 3,  // 1 << 3
+    TerminateByDistance = 4,  // 1 << 4
+    TerminateByPriority = 5,  // 1 << 5
+}
+
+BufferPlaySet :: bit_set[BufferPlayFlags; u32];
+
+// -----------------------------------------------------------------------------------
+
+CooperativeLevel :: enum u32 {
+    Normal       = 1,
+    Priority     = 2,
+    Exclusive    = 3,
+    WritePrimary = 4,
+}
 
 // -----------------------------------------------------------------------------------
 
@@ -243,6 +267,7 @@ WaveFormatEx :: struct {
 // -----------------------------------------------------------------------------------
 
 lockBuffer :: proc { lockBuffer_set, lockBuffer_u32 };
+playBuffer :: proc { playBuffer_set, playBuffer_u32 };
 
 // -----------------------------------------------------------------------------------
 // Procedures
@@ -268,8 +293,6 @@ create :: proc() -> (dsObj : ^DirectSound) {
         return nil;
     }
 
-    dsoundLog("Loaded DirectSound object:\n{}", dsObj^);
-
     return;
 }
 
@@ -287,7 +310,10 @@ createSoundBuffer :: #force_inline proc(dsObj : ^DirectSound, buffer : ^^Buffer,
 // Buffer member procs
 // -----------------------------------------------------------------------------------
 
-getCurrentBufferPosition :: #force_inline proc(buffer : ^Buffer) -> (currentPlayCursor, currentWriteCursor : winapi.DWord, err : Error) {
+getCurrentBufferPosition :: #force_inline proc(buffer : ^Buffer) -> (
+    err : Error,
+    currentPlayCursor, currentWriteCursor : winapi.DWord,
+) {
     currentPlayCursor, currentWriteCursor = 0, 0;
     e := buffer->getCurrentPosition(&currentPlayCursor, &currentWriteCursor);
     err = cast(Error) e;
@@ -301,10 +327,9 @@ lockBuffer_set :: #force_inline proc(
     flags : BufferLockSet,
 ) -> (
     err : Error,
-    audioRegion1 : rawptr, audioRegion1Size : winapi.DWord,
-    audioRegion2 : rawptr, audioRegion2Size : winapi.DWord,
-)
-{
+    audioRegion1 : rawptr, region1Size : winapi.DWord,
+    audioRegion2 : rawptr, region2Size : winapi.DWord,
+) {
     return lockBuffer_u32(buffer, writePointer, bytesToWrite, transmute(u32) flags);
 }
 
@@ -315,19 +340,19 @@ lockBuffer_u32 :: proc(
     flags : winapi.DWord = 0,
 ) -> (
     err : Error,
-    audioRegion1 : rawptr, audioRegion1Size : winapi.DWord,
-    audioRegion2 : rawptr, audioRegion2Size : winapi.DWord,
+    audioRegion1 : rawptr, region1Size : winapi.DWord,
+    audioRegion2 : rawptr, region2Size : winapi.DWord,
 ) {
-    audioRegion1 = nil; audioRegion1Size = 0;
-    audioRegion2 = nil; audioRegion2Size = 0;
+    audioRegion1 = nil; region1Size = 0;
+    audioRegion2 = nil; region2Size = 0;
     err = .ObjectNotFound;
 
     if(buffer == nil) do return;
 
     e := buffer->lock(
         writePointer, bytesToWrite,
-        &audioRegion1, &audioRegion1Size,
-        &audioRegion2, &audioRegion2Size,
+        &audioRegion1, &region1Size,
+        &audioRegion2, &region2Size,
         flags,
     );
 
@@ -335,8 +360,24 @@ lockBuffer_u32 :: proc(
     return;
 }
 
+playBuffer_set :: #force_inline proc(buffer : ^Buffer, priority : winapi.DWord = 0, flags : BufferPlaySet) -> Error {
+    return cast(Error) buffer->play(0, priority, transmute(u32) flags);
+}
+
+playBuffer_u32 :: #force_inline proc(buffer : ^Buffer, priority : winapi.DWord = 0, flags : winapi.DWord = 0) -> Error {
+    return cast(Error) buffer->play(0, priority, flags);
+}
+
 setBufferFormat :: #force_inline proc(buffer : ^Buffer, format : ^WaveFormatEx) -> Error {
     return cast(Error) buffer->setFormat(format);
+}
+
+unlockBuffer :: #force_inline proc(
+    buffer : ^Buffer,
+    audioRegion1 : rawptr, region1Size : winapi.DWord,
+    audioRegion2 : rawptr, region2Size : winapi.DWord,
+) -> Error {
+    return cast(Error) buffer->unlock(audioRegion1, region1Size, audioRegion2, region2Size);
 }
 
 // -----------------------------------------------------------------------------------

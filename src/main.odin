@@ -22,7 +22,10 @@ g_isRunning  := false;
 g_soundBuffer : ^directSound.Buffer;
 
 main :: proc() {
-    delegateMainWindowProc :: proc "std" (window : winapi.HWnd, message : winapi.WindowMessage, wParam : winapi.WParam, lParam : winapi.LParam) -> winapi.LResult {
+    delegateMainWindowProc :: proc "std" (
+        window : winapi.HWnd, message : winapi.WindowMessage,
+        wParam : winapi.WParam, lParam : winapi.LParam,
+    ) -> winapi.LResult {
         context = runtime.default_context();
         return mainWindowProc(window, message, wParam, lParam);
     }
@@ -38,7 +41,7 @@ main :: proc() {
     resizeDibSection(&g_backbuffer, 1280, 720);
 
     windowClass : WndClassA = {
-        style      = ClassStyleSet{ .HRedraw, .VRedraw, .OwnDC },  // @Note: Equivalent to (ClassStyle.HRedraw | ClassStyle.VRedraw | ClassStyle.OwnDC)
+        style      = ClassStyleSet{ .HRedraw, .VRedraw, .OwnDC },  // @Note(Daniel): Equivalent to (ClassStyle.HRedraw | ClassStyle.VRedraw | ClassStyle.OwnDC)
         windowProc = delegateMainWindowProc,
         instance   = currentInstance,
         className  = "Win32WindowClass",
@@ -53,7 +56,7 @@ main :: proc() {
     useDefault := cast(i32) CreateWindow.UseDefault;
     window := createWindow(
         windowClass.className, "CappuccinoEngine-v3",
-        OverlappedWindowStyle | { .Visible },        // @Note: Equivalent to (WindowStyle.OverlappedWindow | WindowStyle.Visible)
+        OverlappedWindowStyle | { .Visible },        // @Note(Daniel): Equivalent to (WindowStyle.OverlappedWindow | WindowStyle.Visible)
         useDefault, useDefault, useDefault, useDefault,
         nil, nil, currentInstance, nil,
     );
@@ -65,11 +68,17 @@ main :: proc() {
 
     deviceContext := getDc(window);
 
-    samplesPerSecond : uint = 48_000;
-    middleCFrequency : uint = 256;  // Middle C frequency is 261.625565 Hz
-    squareWaveCounter, squareWavePeriod : uint = 0, samplesPerSecond / middleCFrequency;
-    bytesPerSample : uint = size_of(i16) * 2;
-    g_soundBuffer = directSoundLoad(window, samplesPerSecond, samplesPerSecond * bytesPerSample);
+    samplesPerSecond   : uint : 48_000;
+    bytesPerSample     : uint : size_of(i16) * 2;
+    soundBufferSize    : uint : samplesPerSecond * bytesPerSample;
+    runningSampleIndex : uint = 0;
+
+    toneFrequency    : uint : 256;  // @Note(Daniel): Middle C frequency is 261.625565 Hz
+    toneVolume       : i16  : 1000;
+    wavePeriod : uint : samplesPerSecond / toneFrequency;
+
+    g_soundBuffer = directSoundLoad(window, samplesPerSecond, soundBufferSize);
+    soundIsPlaying := false;
 
     xOffset, yOffset : int;
     g_isRunning = true;
@@ -99,34 +108,48 @@ main :: proc() {
 
         renderWeirdGradient(&g_backbuffer, xOffset, yOffset);
 
-        writePointer, bytesToWrite : u32 = 0, 0;
 
-        success, region1, region1Size, region2, region2Size := directSound.lockBuffer(g_soundBuffer, writePointer, bytesToWrite);
-        if success != .Ok {
-            consoleError("DirectSound", "lockBuffer (success == {})", success);
+        posSuccess, playCursor, /* writeCursor */_ := directSound.getCurrentBufferPosition(g_soundBuffer);
+        if posSuccess != .Ok {
+            consoleError("DirectSound", "getCurrentBufferPosition (success == {})", posSuccess);
         }
         else {
-            sampleOut := mem.slice_ptr(cast(^i16) region1, cast(int) region1Size);
-            sampleCount := region1Size / cast(u32) bytesPerSample;
-            for i in 0 ..< sampleCount {
-                index := i * 2;
-                if squareWaveCounter <= 0 do squareWaveCounter = squareWavePeriod;
-                sampleValue : i16 = squareWaveCounter > squareWavePeriod / 2 ? 16_000 : -16_000;
-                sampleOut[index    ] = sampleValue;
-                sampleOut[index + 1] = sampleValue;
-                squareWaveCounter -= 1;
-            }
+            byteToLock := cast(u32) (runningSampleIndex * bytesPerSample % soundBufferSize);
+            bytesToWrite : u32 = byteToLock >= playCursor ? cast(u32) soundBufferSize - byteToLock + playCursor : playCursor - byteToLock;
 
-            sampleOut = mem.slice_ptr(cast(^i16) region2, cast(int) region2Size);
-            sampleCount = region2Size / cast(u32) bytesPerSample;
-            for i in 0 ..< sampleCount {
-                index := i * 2;
-                if squareWaveCounter <= 0 do squareWaveCounter = squareWavePeriod;
-                sampleValue : i16 = squareWaveCounter > squareWavePeriod / 2 ? 16_000 : -16_000;
-                sampleOut[index    ] = sampleValue;
-                sampleOut[index + 1] = sampleValue;
-                squareWaveCounter -= 1;
+            lockSuccess, region1, region1Size, region2, region2Size := directSound.lockBuffer(g_soundBuffer, byteToLock, bytesToWrite);
+            if lockSuccess != .Ok {
+                consoleError("DirectSound", "lockBuffer (success == {})", lockSuccess);
             }
+            else {
+                sampleOut := mem.slice_ptr(cast(^i16) region1, cast(int) region1Size);
+                sampleCount := region1Size / cast(u32) bytesPerSample;
+                for i in 0 ..< sampleCount {
+                    index := i * 2;
+                    
+                    sampleValue : i16 = (runningSampleIndex / (wavePeriod / 2)) % 2 > 0 ? toneVolume : -toneVolume;
+                    sampleOut[index    ] = sampleValue;
+                    sampleOut[index + 1] = sampleValue;
+                    runningSampleIndex += 1;
+                }
+
+                sampleOut = mem.slice_ptr(cast(^i16) region2, cast(int) region2Size);
+                sampleCount = region2Size / cast(u32) bytesPerSample;
+                for i in 0 ..< sampleCount {
+                    index := i * 2;
+                    sampleValue : i16 = (runningSampleIndex / (wavePeriod / 2)) % 2 > 0 ? toneVolume : -toneVolume;
+                    sampleOut[index    ] = sampleValue;
+                    sampleOut[index + 1] = sampleValue;
+                    runningSampleIndex += 1;
+                }
+
+                directSound.unlockBuffer(g_soundBuffer, region1, region1Size, region2, region2Size);
+            }
+        }
+
+        if(!soundIsPlaying) {
+            soundIsPlaying = true;
+            directSound.playBuffer(buffer = g_soundBuffer, flags = directSound.BufferPlaySet{ .Looping });
         }
 
         width, height := getWindowDimensions(window);
