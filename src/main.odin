@@ -1,6 +1,7 @@
 package main;
 
 import "core:fmt";
+import "core:math";
 import "core:mem";
 import "core:runtime";
 import "core:strings";
@@ -17,8 +18,20 @@ BitmapBuffer :: struct {
     bytesPerPixel : i8,
 }
 
-g_backbuffer : BitmapBuffer = { bytesPerPixel = 4 };
-g_isRunning  := false;
+SoundOutput :: struct {
+    samplesPerSecond, bytesPerSample : uint,
+    bufferSize : u32,
+
+    frequency  : f32,
+    volume     : f32,
+    wavePeriod : f32,
+
+    runningSampleIndex : uint,
+    isPlaying          : bool,
+}
+
+g_backbuffer  : BitmapBuffer = { bytesPerPixel = 4 };
+g_isRunning   := false;
 g_soundBuffer : ^directSound.Buffer;
 
 main :: proc() {
@@ -68,17 +81,24 @@ main :: proc() {
 
     deviceContext := getDc(window);
 
-    samplesPerSecond   : uint : 48_000;
-    bytesPerSample     : uint : size_of(i16) * 2;
-    soundBufferSize    : uint : samplesPerSecond * bytesPerSample;
-    runningSampleIndex : uint = 0;
+    sps, bps : uint = 48_000, size_of(i16) * 2;  // 48,000 samples/s, 2-channel 16-bit audio
+    f : f32 = 261.625565;  // @Note(Daniel): Middle C frequency is 261.625565 Hz
 
-    toneFrequency    : uint : 256;  // @Note(Daniel): Middle C frequency is 261.625565 Hz
-    toneVolume       : i16  : 1000;
-    wavePeriod : uint : samplesPerSecond / toneFrequency;
+    sound : SoundOutput = {
+        samplesPerSecond   = sps,
+        bytesPerSample     = bps,
+        bufferSize         = cast(u32) (sps * bps),
+        frequency          = f,
+        volume             = 1000.0,
+        wavePeriod         = cast(f32) sps / f,
+        runningSampleIndex = 0,
+        isPlaying          = false,
+    };
 
-    g_soundBuffer = directSoundLoad(window, samplesPerSecond, soundBufferSize);
-    soundIsPlaying := false;
+    g_soundBuffer = directSoundLoad(window, sound.samplesPerSecond, sound.bufferSize);
+    fillSoundBuffer(&sound, 0, sound.bufferSize);
+    directSound.playBuffer(buffer = g_soundBuffer, flags = directSound.BufferPlaySet{ .Looping });
+    sound.isPlaying = true;
 
     xOffset, yOffset : int;
     g_isRunning = true;
@@ -108,53 +128,21 @@ main :: proc() {
 
         renderWeirdGradient(&g_backbuffer, xOffset, yOffset);
 
-
         posSuccess, playCursor, /* writeCursor */_ := directSound.getCurrentBufferPosition(g_soundBuffer);
         if posSuccess != .Ok {
             consoleError("DirectSound", "getCurrentBufferPosition (success == {})", posSuccess);
         }
         else {
-            byteToLock := cast(u32) (runningSampleIndex * bytesPerSample % soundBufferSize);
-            bytesToWrite : u32 = byteToLock >= playCursor ? cast(u32) soundBufferSize - byteToLock + playCursor : playCursor - byteToLock;
-
-            lockSuccess, region1, region1Size, region2, region2Size := directSound.lockBuffer(g_soundBuffer, byteToLock, bytesToWrite);
-            if lockSuccess != .Ok {
-                consoleError("DirectSound", "lockBuffer (success == {})", lockSuccess);
-            }
-            else {
-                sampleOut := mem.slice_ptr(cast(^i16) region1, cast(int) region1Size);
-                sampleCount := region1Size / cast(u32) bytesPerSample;
-                for i in 0 ..< sampleCount {
-                    index := i * 2;
-                    
-                    sampleValue : i16 = (runningSampleIndex / (wavePeriod / 2)) % 2 > 0 ? toneVolume : -toneVolume;
-                    sampleOut[index    ] = sampleValue;
-                    sampleOut[index + 1] = sampleValue;
-                    runningSampleIndex += 1;
-                }
-
-                sampleOut = mem.slice_ptr(cast(^i16) region2, cast(int) region2Size);
-                sampleCount = region2Size / cast(u32) bytesPerSample;
-                for i in 0 ..< sampleCount {
-                    index := i * 2;
-                    sampleValue : i16 = (runningSampleIndex / (wavePeriod / 2)) % 2 > 0 ? toneVolume : -toneVolume;
-                    sampleOut[index    ] = sampleValue;
-                    sampleOut[index + 1] = sampleValue;
-                    runningSampleIndex += 1;
-                }
-
-                directSound.unlockBuffer(g_soundBuffer, region1, region1Size, region2, region2Size);
-            }
-        }
-
-        if(!soundIsPlaying) {
-            soundIsPlaying = true;
-            directSound.playBuffer(buffer = g_soundBuffer, flags = directSound.BufferPlaySet{ .Looping });
+            byteToLock := (cast(u32) (sound.runningSampleIndex * sound.bytesPerSample)) % sound.bufferSize;
+            bytesToWrite : u32 =
+                byteToLock >= playCursor ? sound.bufferSize - byteToLock + playCursor : playCursor - byteToLock;
+            fillSoundBuffer(&sound, byteToLock, bytesToWrite);
         }
 
         width, height := getWindowDimensions(window);
         copyBufferToWindow(&g_backbuffer, deviceContext, width, height);
     }
+
 }
 
 mainWindowProc :: proc(window : winapi.HWnd, message : winapi.WindowMessage, wParam : winapi.WParam, lParam : winapi.LParam) -> (result : winapi.LResult) {
@@ -233,7 +221,7 @@ mainWindowProc :: proc(window : winapi.HWnd, message : winapi.WindowMessage, wPa
     return;
 }
 
-directSoundLoad :: proc(window : winapi.HWnd, samplesPerSecond : uint, bufferSize : uint) -> (buffer : ^directSound.Buffer) {
+directSoundLoad :: proc(window : winapi.HWnd, samplesPerSecond : uint, bufferSize : u32) -> (buffer : ^directSound.Buffer) {
     using directSound;
     buffer = nil;
     dsObj := create();
@@ -289,6 +277,45 @@ directSoundLoad :: proc(window : winapi.HWnd, samplesPerSecond : uint, bufferSiz
 
     consolePrint("DirectSound", "Secondary buffer successfully created!");
     return buffer;
+}
+
+fillSoundBuffer :: proc(using sound : ^SoundOutput, byteToLock, bytesToWrite : u32) {
+    lockSuccess, region1, region1Size, region2, region2Size :=
+        directSound.lockBuffer(g_soundBuffer, byteToLock, bytesToWrite);
+    if lockSuccess != .Ok {
+        consoleError("DirectSound", "lockBuffer (success == {})", lockSuccess);
+        return;
+    }
+
+    sampleOut := mem.slice_ptr(cast(^i16) region1, cast(int) region1Size);
+    sampleCount := region1Size / cast(u32) bytesPerSample;
+    for i in 0 ..< sampleCount {
+        index := i * 2;
+
+        t := 2.0 * math.PI * (cast(f32) runningSampleIndex / cast(f32) wavePeriod);
+        sineValue := math.sin(t);
+        sampleValue := cast(i16) (sineValue * volume);
+
+        sampleOut[index    ] = sampleValue;
+        sampleOut[index + 1] = sampleValue;
+        runningSampleIndex += 1;
+    }
+
+    sampleOut = mem.slice_ptr(cast(^i16) region2, cast(int) region2Size);
+    sampleCount = region2Size / cast(u32) bytesPerSample;
+    for i in 0 ..< sampleCount {
+        index := i * 2;
+
+        t := 2.0 * math.PI * (cast(f32) runningSampleIndex / wavePeriod);
+        sineValue := math.sin(t);
+        sampleValue := cast(i16) (sineValue * volume);
+
+        sampleOut[index    ] = sampleValue;
+        sampleOut[index + 1] = sampleValue;
+        runningSampleIndex += 1;
+    }
+
+    directSound.unlockBuffer(g_soundBuffer, region1, region1Size, region2, region2Size);
 }
 
 renderWeirdGradient :: proc(using buffer : ^BitmapBuffer, blueOffset, greenOffset : int) {
