@@ -329,6 +329,7 @@ WindowStyle :: enum u32 {
 }
 
 WindowStyleFlags :: enum u32 {
+    _                = 0,   // @Note: Needed due to bit_set semantics: https://github.com/odin-lang/Odin/issues/1074#issuecomment-898452792
     Overlapped       = 32,  // 0, expecting overflow
     MaximizeBox      = 16,  // 1 << 16
     MinimizeBox      = 17,  // 1 << 17

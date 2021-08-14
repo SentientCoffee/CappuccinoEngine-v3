@@ -30,20 +30,13 @@ SoundOutput :: struct {
     isPlaying          : bool,
 }
 
-g_backbuffer  : BitmapBuffer = { bytesPerPixel = 4 };
+g_backbuffer  := BitmapBuffer{ bytesPerPixel = 4 };
 g_isRunning   := false;
 g_soundBuffer : ^directSound.Buffer;
 
 main :: proc() {
-    delegateMainWindowProc :: proc "std" (
-        window : winapi.HWnd, message : winapi.WindowMessage,
-        wParam : winapi.WParam, lParam : winapi.LParam,
-    ) -> winapi.LResult {
-        context = runtime.default_context();
-        return mainWindowProc(window, message, wParam, lParam);
-    }
-
     using winapi;
+
     currentInstance := getModuleHandle();
     if success := comInitialize(); success != 0 {
         dumpLastError("ComInitialize");
@@ -53,26 +46,37 @@ main :: proc() {
     xinput.load();
     resizeDibSection(&g_backbuffer, 1280, 720);
 
-    windowClass : WndClassA = {
-        style      = ClassStyleSet{ .HRedraw, .VRedraw, .OwnDC },  // @Note(Daniel): Equivalent to (ClassStyle.HRedraw | ClassStyle.VRedraw | ClassStyle.OwnDC)
-        windowProc = delegateMainWindowProc,
-        instance   = currentInstance,
-        className  = "Win32WindowClass",
-    };
+    windowClass : WndClassA;
+    {
+        wp :: proc "std" (window : HWnd, message : WindowMessage, wParam : WParam, lParam : LParam) -> LResult {
+            context = runtime.default_context();
+            return mainWindowProc(window, message, wParam, lParam);
+        }
+
+        s := cast(u32) (ClassStyle.HRedraw | ClassStyle.VRedraw | ClassStyle.OwnDC);
+        windowClass = {
+            style      = s,
+            windowProc = wp,
+            instance   = currentInstance,
+            className  = "Win32WindowClass",
+        };
+    }
 
     if atomHandle := registerClass(&windowClass); atomHandle == 0 {
-        debugStr := fmt.tprintf("RegisterClass");
-        dumpLastError(debugStr);
+        dumpLastError("RegisterClass");
         return;
     }
 
-    useDefault := cast(i32) CreateWindow.UseDefault;
-    window := createWindow(
-        windowClass.className, "CappuccinoEngine-v3",
-        OverlappedWindowStyle | { .Visible },        // @Note(Daniel): Equivalent to (WindowStyle.OverlappedWindow | WindowStyle.Visible)
-        useDefault, useDefault, useDefault, useDefault,
-        nil, nil, currentInstance, nil,
-    );
+    window : HWnd;
+    {
+        useDefault := cast(i32) CreateWindow.UseDefault;
+        style := cast(u32) (WindowStyle.OverlappedWindow | WindowStyle.Visible);
+        window = createWindow(
+            windowClass.className, "CappuccinoEngine-v3", style,
+            useDefault, useDefault, useDefault, useDefault,
+            nil, nil, currentInstance, nil,
+        );
+    }
 
     if window == nil {
         dumpLastError("CreateWindow");
@@ -97,7 +101,7 @@ main :: proc() {
 
     g_soundBuffer = directSoundLoad(window, sound.samplesPerSecond, sound.bufferSize);
     fillSoundBuffer(&sound, 0, sound.bufferSize);
-    directSound.playBuffer(buffer = g_soundBuffer, flags = directSound.BufferPlaySet{ .Looping });
+    directSound.playBuffer(g_soundBuffer, 0, cast(u32) directSound.BufferPlay.Looping);
     sound.isPlaying = true;
 
     xOffset, yOffset : int;
@@ -128,8 +132,7 @@ main :: proc() {
 
         renderWeirdGradient(&g_backbuffer, xOffset, yOffset);
 
-        posSuccess, playCursor, /* writeCursor */_ := directSound.getCurrentBufferPosition(g_soundBuffer);
-        if posSuccess != .Ok {
+        if posSuccess, playCursor, _/* writeCursor */ := directSound.getCurrentBufferPosition(g_soundBuffer); posSuccess != .Ok {
             consoleError("DirectSound", "getCurrentBufferPosition (success == {})", posSuccess);
         }
         else {
@@ -347,7 +350,9 @@ resizeDibSection :: proc(using buffer : ^BitmapBuffer, bitmapWidth, bitmapHeight
     info.planes = 1; info.bitCount = .Color32; info.compression = .Rgb;
 
     memorySize := width * height * cast(int) bytesPerPixel;
-    memory = virtualAlloc(nil, cast(uint) memorySize, MemoryAllocTypeSet{ .Reserve, .Commit }, MemoryProtectionTypeSet{ .ReadWrite });
+    allocType  := cast(u32) (MemoryAllocType.Commit | MemoryAllocType.Reserve);
+    protection := cast(u32) (MemoryProtectionType.ReadWrite);
+    memory = virtualAlloc(nil, cast(uint) memorySize, allocType, protection);
     if memory == nil do dumpLastError("VirtualAlloc");
 }
 
@@ -377,7 +382,7 @@ dumpLastError :: #force_inline proc(errString : string, args : ..any) {
     using winapi;
     str := fmt.tprintf(errString, ..args);
     err := getLastError();
-    consolePrint("Windows", "{}\nLast error: {} (0x{:x})\n", str, err, cast(u32) err);
+    consoleError("Windows", "{}\nLast error: {} (0x{:x})", str, err, cast(u32) err);
 }
 
 consolePrint :: #force_inline proc(ident : string, formatString : string, args : ..any) {

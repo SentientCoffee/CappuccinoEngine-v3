@@ -1,5 +1,9 @@
 @echo off
-setlocal
+
+pushd %~dp0
+
+call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat" x64
+echo --------------------------------------------------------------
 
 set exe_name=cappuccino
 set collections=-collection:externals=externals
@@ -15,11 +19,11 @@ if "%1"=="debug" (
     set dir=debug
     set exe_name=%exe_name%_d
     set debug_flag=-debug
-    echo Building debug binary...
-) else (
-    echo Building release binary...
 )
 
+echo Building %dir% binary...
 if not exist "build\%dir%\" mkdir "build\%dir%\"
 
 odin build src\main.odin %collections% -out:"build\%dir%\%exe_name%.exe" %debug_flag% -opt:%level% -vet -show-timings
+
+popd
