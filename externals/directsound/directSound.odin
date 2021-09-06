@@ -1,4 +1,4 @@
-package directSound;
+package directsound;
 
 import "core:fmt";
 import "core:strings";
@@ -66,7 +66,54 @@ BufferCaps :: enum u32 {
     GetCurrentPosition2   = 0x0000_1000,  // 1 << 12
     Mute3dAtMaxDistance   = 0x0000_2000,  // 1 << 13
     LocationDefer         = 0x0000_4000,  // 1 << 14
-    TruePlayPosition      = 0x0000_8000,  // 1 << 15
+    TruePlayPosition      = 0x0000_8000,  // 1 << 15 // @Note: Only needed in Windows Vista?
+}
+
+BufferCapsFlags :: enum u32 {
+    PrimaryBuffer,
+    Static,
+    LocalHardware,
+    LocalSoftware,
+    Control3d,
+    ControlFrequency,
+    ControlPan,
+    ControlVolume,
+    ControlPositionNotify,
+    ControlFx,
+    StickyFocus,
+    GlobalFocus,
+    GetCurrentPosition2,
+    Mute3dAtMaxDistance,
+    LocationDefer,
+    TruePlayPosition,
+}
+
+BufferCapsSet :: bit_set[BufferCapsFlags; u32];
+
+@(private="file")
+BufferCapsSet_to_u32 :: #force_inline proc(set : BufferCapsSet) -> (ret : u32) {
+    set := set;
+    @static flagToBit := [BufferCapsFlags]u32{
+        .PrimaryBuffer         = cast(u32) (BufferCaps.PrimaryBuffer),
+        .Static                = cast(u32) (BufferCaps.Static),
+        .LocalHardware         = cast(u32) (BufferCaps.LocalHardware),
+        .LocalSoftware         = cast(u32) (BufferCaps.LocalSoftware),
+        .Control3d             = cast(u32) (BufferCaps.Control3d),
+        .ControlFrequency      = cast(u32) (BufferCaps.ControlFrequency),
+        .ControlPan            = cast(u32) (BufferCaps.ControlPan),
+        .ControlVolume         = cast(u32) (BufferCaps.ControlVolume),
+        .ControlPositionNotify = cast(u32) (BufferCaps.ControlPositionNotify),
+        .ControlFx             = cast(u32) (BufferCaps.ControlFx),
+        .StickyFocus           = cast(u32) (BufferCaps.StickyFocus),
+        .GlobalFocus           = cast(u32) (BufferCaps.GlobalFocus),
+        .GetCurrentPosition2   = cast(u32) (BufferCaps.GetCurrentPosition2),
+        .Mute3dAtMaxDistance   = cast(u32) (BufferCaps.Mute3dAtMaxDistance),
+        .LocationDefer         = cast(u32) (BufferCaps.LocationDefer),
+        .TruePlayPosition      = cast(u32) (BufferCaps.TruePlayPosition),
+    };
+
+    ret = winapi.bitset_to_integral(set, flagToBit);
+    return ret;
 }
 
 // -----------------------------------------------------------------------------------
@@ -77,11 +124,23 @@ BufferLock :: enum u32 {
 }
 
 BufferLockFlags :: enum u32 {
-    FromWriteCursor = 0,  // 1 << 0
-    EntireBuffer    = 1,  // 1 << 1
+    FromWriteCursor,
+    EntireBuffer,
 }
 
 BufferLockSet :: bit_set[BufferLockFlags; u32];
+
+@(private="file")
+BufferLockSet_to_u32 :: #force_inline proc(set : BufferLockSet) -> (ret : u32) {
+    set := set;
+    @static flagToBit := [BufferLockFlags]u32{
+        .FromWriteCursor = cast(u32) (BufferLock.FromWriteCursor),
+        .EntireBuffer    = cast(u32) (BufferLock.EntireBuffer),
+    };
+
+    ret = winapi.bitset_to_integral(set, flagToBit);
+    return ret;
+}
 
 // -----------------------------------------------------------------------------------
 
@@ -95,15 +154,45 @@ BufferPlay :: enum u32 {
 }
 
 BufferPlayFlags :: enum u32 {
-    Looping             = 0,  // 1 << 0
-    LocalHardware       = 1,  // 1 << 1
-    LocalSoftware       = 2,  // 1 << 2
-    TerminateByTime     = 3,  // 1 << 3
-    TerminateByDistance = 4,  // 1 << 4
-    TerminateByPriority = 5,  // 1 << 5
+    Looping,
+    LocalHardware,
+    LocalSoftware,
+    TerminateByTime,
+    TerminateByDistance,
+    TerminateByPriority,
 }
 
 BufferPlaySet :: bit_set[BufferPlayFlags; u32];
+
+@(private="file")
+BufferPlaySet_to_u32 :: #force_inline proc(set : BufferPlaySet) -> (ret : u32) {
+    set := set;
+    @static flagToBit := [BufferPlayFlags]u32{
+        .Looping             = cast(u32) (BufferPlay.Looping),
+        .LocalHardware       = cast(u32) (BufferPlay.LocalHardware),
+        .LocalSoftware       = cast(u32) (BufferPlay.LocalSoftware),
+        .TerminateByTime     = cast(u32) (BufferPlay.TerminateByTime),
+        .TerminateByDistance = cast(u32) (BufferPlay.TerminateByDistance),
+        .TerminateByPriority = cast(u32) (BufferPlay.TerminateByPriority),
+    };
+
+    if set >= { .LocalSoftware, .LocalHardware } {
+        //
+        // @Todo(Daniel): Log warning about LocalSoftware/LocalHardware here
+        // @Reference: https://docs.microsoft.com/en-us/previous-versions/windows/desktop/ee418074(v=vs.85)
+        //
+
+        if .LocalHardware in set && set > (set & { .TerminateByTime, .TerminateByDistance, .TerminateByPriority }) {
+            set -= { .LocalSoftware };
+        }
+        else {
+            set -= { .LocalHardware, .TerminateByTime, .TerminateByDistance, .TerminateByPriority };
+        }
+    }
+
+    ret = winapi.bitset_to_integral(set, flagToBit);
+    return ret;
+}
 
 // -----------------------------------------------------------------------------------
 
@@ -116,7 +205,7 @@ CooperativeLevel :: enum u32 {
 
 // -----------------------------------------------------------------------------------
 
-WaveFormatTags :: enum u16 {
+WaveFormatTag :: enum u16 {
     Unknown = 0,
     Pcm     = 1,
 }
@@ -191,18 +280,16 @@ BufferVtbl :: struct {
 }
 
 BufferCapabilities :: struct {
-    size, flags        : winapi.DWord,
-    bufferBytes        : winapi.DWord,
-    unlockTransferRate : winapi.DWord,
-    playCpuOverhead    : winapi.DWord,
+    size, flags, bufferBytes : winapi.DWord,
+    unlockTransferRate       : winapi.DWord,
+    playCpuOverhead          : winapi.DWord,
 }
 
 BufferDescription :: struct {
-    size, flags : winapi.DWord,
-    bufferBytes : winapi.DWord,
-    reserved    : winapi.DWord,
-    waveFormat  : ^WaveFormatEx,
-    algorithm3d : winapi.Guid,
+    size, flags           : winapi.DWord,
+    bufferBytes, reserved : winapi.DWord,
+    waveFormat            : ^WaveFormatEx,
+    algorithm3d           : winapi.Guid,
 }
 
 // -----------------------------------------------------------------------------------
@@ -250,13 +337,15 @@ DirectSoundCapabilities :: struct {
 // -----------------------------------------------------------------------------------
 
 WaveFormat :: struct {
-    formatTag, channels                 : winapi.Word,
+    formatTag                           : WaveFormatTag,
+    channels                            : winapi.Word,
     samplesPerSecond, avgBytesPerSecond : winapi.DWord,
     blockAlign                          : winapi.Word,
 }
 
 WaveFormatEx :: struct {
-    formatTag, channels                 : winapi.Word,
+    formatTag                           : WaveFormatTag,
+    channels                            : winapi.Word,
     samplesPerSecond, avgBytesPerSecond : winapi.DWord,
     blockAlign                          : winapi.Word,
     bitsPerSample, size                 : winapi.Word,
@@ -273,11 +362,13 @@ playBuffer :: proc { playBuffer_set, playBuffer_u32 };
 // Procedures
 // -----------------------------------------------------------------------------------
 
-create :: proc() -> (dsObj : ^DirectSound) {
+create :: proc() -> (err : Error, dsObj : ^DirectSound) {
+    err, dsObj = .Uninitialized, nil;
+
     dsoundLib : winapi.HModule = ---;
     if dsoundLib = winapi.loadLibrary(DSoundDLL); dsoundLib == nil {
         dsoundError("loadLibrary (dsoundLib == {})", dsoundLib);
-        return nil;
+        return;
     }
 
     dsoundLog("Loaded {}", DSoundDLL);
@@ -285,12 +376,12 @@ create :: proc() -> (dsObj : ^DirectSound) {
     createProc : CreateProc = nil;
     if createProc = cast(CreateProc) winapi.getProcAddress(dsoundLib, "DirectSoundCreate"); createProc == nil {
         dsoundError("getProcAddress (createProc == {})", createProc);
-        return nil;
+        return;
     }
 
-    if success := createProc(nil, &dsObj, nil); cast(Error) success != .Ok {
-        dsoundError("directSoundCreate (success == {})", success);
-        return nil;
+    if err = cast(Error) createProc(nil, &dsObj, nil); err != .Ok {
+        dsoundError("directSoundCreate (success == {})", err);
+        return;
     }
 
     return;
@@ -303,8 +394,10 @@ setCooperativeLevel :: #force_inline proc(dsObj : ^DirectSound, window : winapi.
     return cast(Error) dsObj->setCooperativeLevel(window, cast(u32) level);
 }
 
-createSoundBuffer :: #force_inline proc(dsObj : ^DirectSound, buffer : ^^Buffer, description : ^BufferDescription) -> Error {
-    return cast(Error) dsObj->createSoundBuffer(description, buffer, nil);
+createSoundBuffer :: proc(dsObj : ^DirectSound, description : BufferDescription) -> (err : Error, buffer : ^Buffer) {
+    description := description;
+    err = cast(Error) dsObj->createSoundBuffer(&description, &buffer, nil);
+    return;
 }
 
 // Buffer member procs
@@ -322,30 +415,28 @@ getCurrentBufferPosition :: #force_inline proc(buffer : ^Buffer) -> (
 
 lockBuffer_set :: #force_inline proc(
     buffer : ^Buffer,
-    writePointer : winapi.DWord,
-    bytesToWrite : winapi.DWord,
+    writePointer, bytesToWrite : winapi.DWord,
     flags : BufferLockSet,
 ) -> (
     err : Error,
     audioRegion1 : rawptr, region1Size : winapi.DWord,
     audioRegion2 : rawptr, region2Size : winapi.DWord,
 ) {
-    return lockBuffer_u32(buffer, writePointer, bytesToWrite, transmute(u32) flags);
+    return lockBuffer_u32(buffer, writePointer, bytesToWrite, BufferLockSet_to_u32(flags));
 }
 
 lockBuffer_u32 :: proc(
     buffer : ^Buffer,
-    writePointer : winapi.DWord,
-    bytesToWrite : winapi.DWord,
+    writePointer, bytesToWrite : winapi.DWord,
     flags : winapi.DWord = 0,
 ) -> (
     err : Error,
     audioRegion1 : rawptr, region1Size : winapi.DWord,
     audioRegion2 : rawptr, region2Size : winapi.DWord,
 ) {
-    audioRegion1 = nil; region1Size = 0;
-    audioRegion2 = nil; region2Size = 0;
-    err = .ObjectNotFound;
+    audioRegion1, audioRegion2 = nil, nil;
+    region1Size,  region2Size  = 0, 0;
+    err = .Uninitialized;
 
     if(buffer == nil) do return;
 
@@ -361,7 +452,7 @@ lockBuffer_u32 :: proc(
 }
 
 playBuffer_set :: #force_inline proc(buffer : ^Buffer, priority : winapi.DWord = 0, flags : BufferPlaySet) -> Error {
-    return cast(Error) buffer->play(0, priority, transmute(u32) flags);
+    return cast(Error) buffer->play(0, priority, BufferPlaySet_to_u32(flags));
 }
 
 playBuffer_u32 :: #force_inline proc(buffer : ^Buffer, priority : winapi.DWord = 0, flags : winapi.DWord = 0) -> Error {
@@ -381,6 +472,8 @@ unlockBuffer :: #force_inline proc(
 }
 
 // -----------------------------------------------------------------------------------
+
+// @Todo(Daniel): Change these to context.logger
 
 @(private)
 dsoundLog :: #force_inline proc(errString : string, args : ..any) {

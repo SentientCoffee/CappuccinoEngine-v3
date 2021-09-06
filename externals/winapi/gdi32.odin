@@ -83,16 +83,16 @@ createCompatibleDc :: proc { createCompatibleDc_handle, createCompatibleDc_nil }
 // Procedures
 // -----------------------------------------------------------------------------------
 
+createCompatibleDc_nil    :: proc()          -> HDC do return wCreateCompatibleDc(nil);
 createCompatibleDc_handle :: proc(hdc : HDC) -> HDC do return wCreateCompatibleDc(hdc);
-createCompatibleDc_nil    :: proc() -> HDC          do return wCreateCompatibleDc(nil);
 
 // -----------------------------------------------------------------------------------
 
 createDibSection :: proc(
     hdc : HDC,
-    bitmapInfo : ^BitmapInfo, usage : DibUsage, rawBits : ^rawptr,
-    section : Handle, offset : DWord) -> HBitmap
-{
+    bitmapInfo : ^BitmapInfo, usage : DibUsage,
+    rawBits : ^rawptr, section : Handle, offset : DWord,
+) -> HBitmap {
     return wCreateDibSection(hdc, bitmapInfo, cast(u32) usage, rawBits, section, offset);
 }
 
@@ -109,8 +109,8 @@ stretchDiBits :: proc(
     destX, destY, destWidth, destHeight : i32,
     srcX, srcY, srcWidth, srcHeight : i32,
     rawBits : rawptr, bitmapInfo : ^BitmapInfo,
-    usage : DibUsage, rasterOp : RasterOperation) -> i32
-{
+    usage : DibUsage, rasterOp : RasterOperation,
+) -> i32 {
     return wStretchDiBits(hdc, destX, destY, destWidth, destHeight, srcX, srcY, srcWidth, srcHeight, rawBits, bitmapInfo, cast(u32) usage, cast(u32) rasterOp);
 }
 

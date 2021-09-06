@@ -2,8 +2,8 @@
 
 pushd %~dp0
 
-call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat" x64
-echo --------------------------------------------------------------
+rem call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat" x64
+rem echo --------------------------------------------------------------
 
 set exe_name=cappuccino
 set collections=-collection:externals=externals

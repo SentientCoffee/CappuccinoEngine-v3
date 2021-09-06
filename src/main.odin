@@ -8,7 +8,7 @@ import "core:strings";
 
 import "externals:winapi";
 import "externals:xinput";
-import "externals:directSound";
+import "externals:directsound";
 
 BitmapBuffer :: struct {
     info          : winapi.BitmapInfo,
@@ -22,9 +22,9 @@ SoundOutput :: struct {
     samplesPerSecond, bytesPerSample : uint,
     bufferSize : u32,
 
-    frequency  : f32,
-    volume     : f32,
-    wavePeriod : f32,
+    frequency, volume  : f32,
+    wavePeriod, tSine  : f32,
+    latencySampleCount : f32,
 
     runningSampleIndex : uint,
     isPlaying          : bool,
@@ -32,7 +32,7 @@ SoundOutput :: struct {
 
 g_backbuffer  := BitmapBuffer{ bytesPerPixel = 4 };
 g_isRunning   := false;
-g_soundBuffer : ^directSound.Buffer;
+g_soundBuffer : ^directsound.Buffer;
 
 main :: proc() {
     using winapi;
@@ -53,9 +53,8 @@ main :: proc() {
             return mainWindowProc(window, message, wParam, lParam);
         }
 
-        s := cast(u32) (ClassStyle.HRedraw | ClassStyle.VRedraw | ClassStyle.OwnDC);
         windowClass = {
-            style      = s,
+            style      = ClassStyleSet{ .HRedraw, .VRedraw, .OwnDC },
             windowProc = wp,
             instance   = currentInstance,
             className  = "Win32WindowClass",
@@ -70,9 +69,9 @@ main :: proc() {
     window : HWnd;
     {
         useDefault := cast(i32) CreateWindow.UseDefault;
-        style := cast(u32) (WindowStyle.OverlappedWindow | WindowStyle.Visible);
         window = createWindow(
-            windowClass.className, "CappuccinoEngine-v3", style,
+            windowClass.className, "CappuccinoEngine-v3",
+            WindowStyleSet{ .OverlappedWindow, .Visible },
             useDefault, useDefault, useDefault, useDefault,
             nil, nil, currentInstance, nil,
         );
@@ -86,7 +85,7 @@ main :: proc() {
     deviceContext := getDc(window);
 
     sps, bps : uint = 48_000, size_of(i16) * 2;  // 48,000 samples/s, 2-channel 16-bit audio
-    f : f32 = 261.625565;  // @Note(Daniel): Middle C frequency is 261.625565 Hz
+    f : f32 = 261.63;  // @Note(Daniel): Middle C frequency is 261.625565 Hz
 
     sound : SoundOutput = {
         samplesPerSecond   = sps,
@@ -95,13 +94,15 @@ main :: proc() {
         frequency          = f,
         volume             = 1000.0,
         wavePeriod         = cast(f32) sps / f,
+        tSine              = 0,
+        latencySampleCount = cast(f32) sps / 15.0,
         runningSampleIndex = 0,
         isPlaying          = false,
     };
 
     g_soundBuffer = directSoundLoad(window, sound.samplesPerSecond, sound.bufferSize);
-    fillSoundBuffer(&sound, 0, sound.bufferSize);
-    directSound.playBuffer(g_soundBuffer, 0, cast(u32) directSound.BufferPlay.Looping);
+    fillSoundBuffer(&sound, 0, cast(u32) sound.latencySampleCount * cast(u32) sound.bytesPerSample);
+    directsound.playBuffer(g_soundBuffer, 0, directsound.BufferPlaySet{ .Looping });
     sound.isPlaying = true;
 
     xOffset, yOffset : int;
@@ -112,33 +113,36 @@ main :: proc() {
         }
 
         message : Msg = ---;
-        for peekMessage(&message, nil, 0, 0, cast(u32) PeekMessage.Remove) {
+        for peekMessage(&message, nil, 0, 0, PeekMessageSet{ .Remove }) {
             if message.message == .Quit do g_isRunning = false;
             translateMessage(&message);
             dispatchMessage(&message);
         }
 
         for controllerIndex in 0 ..< xinput.UserMaxCount {
-            using xinput;
-
             using controllerState : xinput.State = ---;
             if success := xinput.getState(cast(u32) controllerIndex, &controllerState); success != .Success {
                 continue;
             }
 
-            xOffset -= cast(int) gamepad.thumbstickRX >> 10;
-            yOffset += cast(int) gamepad.thumbstickRY >> 10;
+            xOffset -= cast(int) gamepad.thumbstickRX / 4096;
+            yOffset += cast(int) gamepad.thumbstickRY / 4096;
+
+            f = 512 + (256.0 * cast(f32) gamepad.thumbstickRY / 30_000.0);
+            sound.frequency = f;
+            sound.wavePeriod = cast(f32) sps / f;
         }
 
         renderWeirdGradient(&g_backbuffer, xOffset, yOffset);
 
-        if posSuccess, playCursor, _/* writeCursor */ := directSound.getCurrentBufferPosition(g_soundBuffer); posSuccess != .Ok {
+        if posSuccess, playCursor, _/* writeCursor */ := directsound.getCurrentBufferPosition(g_soundBuffer); posSuccess != .Ok {
             consoleError("DirectSound", "getCurrentBufferPosition (success == {})", posSuccess);
         }
         else {
-            byteToLock := (cast(u32) (sound.runningSampleIndex * sound.bytesPerSample)) % sound.bufferSize;
-            bytesToWrite : u32 =
-                byteToLock >= playCursor ? sound.bufferSize - byteToLock + playCursor : playCursor - byteToLock;
+            using sound;
+            byteToLock   := (cast(u32) (runningSampleIndex * bytesPerSample)) % bufferSize;
+            targetCursor := (playCursor + cast(u32) (latencySampleCount * cast(f32) bytesPerSample)) % bufferSize;
+            bytesToWrite := sound.bufferSize - byteToLock + targetCursor if byteToLock >= targetCursor else targetCursor - byteToLock;
             fillSoundBuffer(&sound, byteToLock, bytesToWrite);
         }
 
@@ -224,25 +228,30 @@ mainWindowProc :: proc(window : winapi.HWnd, message : winapi.WindowMessage, wPa
     return;
 }
 
-directSoundLoad :: proc(window : winapi.HWnd, samplesPerSecond : uint, bufferSize : u32) -> (buffer : ^directSound.Buffer) {
-    using directSound;
-    buffer = nil;
-    dsObj := create();
+directSoundLoad :: proc(window : winapi.HWnd, samplesPerSecond : uint, bufferSize : u32) -> (buffer : ^directsound.Buffer) {
+    using directsound;
+    buffer = nil; success : Error;
 
-    if success := setCooperativeLevel(dsObj, window, .Priority); success != .Ok {
-        consoleError("DirectSound", "setCooperativeLevel (success == {})", success);
-        return nil;
+    dsObj : ^directsound.DirectSound;
+    if success, dsObj = create(); success != .Ok {
+        consoleError("DirectSound", "create (success == {})", success);
+        return;
     }
 
-    primaryBuffer : ^Buffer;
+    if success = setCooperativeLevel(dsObj, window, .Priority); success != .Ok {
+        consoleError("DirectSound", "setCooperativeLevel (success == {})", success);
+        return;
+    }
+
     pBufferDesc : BufferDescription = {
         size  = size_of(BufferDescription),
         flags = cast(u32) BufferCaps.PrimaryBuffer,
     };
 
-    if success := createSoundBuffer(dsObj, &primaryBuffer, &pBufferDesc); success != .Ok {
+    primaryBuffer : ^Buffer;
+    if success, primaryBuffer = createSoundBuffer(dsObj, pBufferDesc); success != .Ok {
         consoleError("DirectSound", "createSoundBuffer (primary) (success == {})", success);
-        return nil;
+        return;
     }
 
     consolePrint("DirectSound", "Primary buffer successfully created!");
@@ -250,7 +259,7 @@ directSoundLoad :: proc(window : winapi.HWnd, samplesPerSecond : uint, bufferSiz
     ch, bps : u16 = 2, 16; // 2-channel, 16-bit audio
     block := ch * bps / 8;
     waveFormat : WaveFormatEx = {
-        formatTag         = cast(u16) WaveFormatTags.Pcm,
+        formatTag         = .Pcm,
         channels          = ch,
         samplesPerSecond  = cast(u32) samplesPerSecond,
         avgBytesPerSecond = cast(u32) (cast(uint) block * samplesPerSecond),
@@ -259,9 +268,9 @@ directSoundLoad :: proc(window : winapi.HWnd, samplesPerSecond : uint, bufferSiz
         size              = 0,
     };
 
-    if success := setBufferFormat(primaryBuffer, &waveFormat); success != .Ok {
+    if success = setBufferFormat(primaryBuffer, &waveFormat); success != .Ok {
         consoleError("DirectSound", "setBufferFormat (primary) (success == {})", success);
-        return nil;
+        return;
     }
 
     consolePrint("DirectSound", "Primary buffer format set!");
@@ -273,9 +282,9 @@ directSoundLoad :: proc(window : winapi.HWnd, samplesPerSecond : uint, bufferSiz
         waveFormat  = &waveFormat,
     };
 
-    if success := createSoundBuffer(dsObj, &buffer, &sBufferDesc); success != .Ok {
+    if success, buffer = createSoundBuffer(dsObj, sBufferDesc); success != .Ok {
         consoleError("DirectSound", "createSoundBuffer (secondary) (success == {})", success);
-        return nil;
+        return;
     }
 
     consolePrint("DirectSound", "Secondary buffer successfully created!");
@@ -283,8 +292,7 @@ directSoundLoad :: proc(window : winapi.HWnd, samplesPerSecond : uint, bufferSiz
 }
 
 fillSoundBuffer :: proc(using sound : ^SoundOutput, byteToLock, bytesToWrite : u32) {
-    lockSuccess, region1, region1Size, region2, region2Size :=
-        directSound.lockBuffer(g_soundBuffer, byteToLock, bytesToWrite);
+    lockSuccess, region1, region1Size, region2, region2Size := directsound.lockBuffer(g_soundBuffer, byteToLock, bytesToWrite);
     if lockSuccess != .Ok {
         consoleError("DirectSound", "lockBuffer (success == {})", lockSuccess);
         return;
@@ -295,12 +303,13 @@ fillSoundBuffer :: proc(using sound : ^SoundOutput, byteToLock, bytesToWrite : u
     for i in 0 ..< sampleCount {
         index := i * 2;
 
-        t := 2.0 * math.PI * (cast(f32) runningSampleIndex / cast(f32) wavePeriod);
-        sineValue := math.sin(t);
+        sineValue := math.sin(tSine);
         sampleValue := cast(i16) (sineValue * volume);
 
         sampleOut[index    ] = sampleValue;
         sampleOut[index + 1] = sampleValue;
+
+        tSine += 2.0 * math.PI * (cast(f32) 1.0 / wavePeriod);
         runningSampleIndex += 1;
     }
 
@@ -309,16 +318,17 @@ fillSoundBuffer :: proc(using sound : ^SoundOutput, byteToLock, bytesToWrite : u
     for i in 0 ..< sampleCount {
         index := i * 2;
 
-        t := 2.0 * math.PI * (cast(f32) runningSampleIndex / wavePeriod);
-        sineValue := math.sin(t);
+        sineValue := math.sin(tSine);
         sampleValue := cast(i16) (sineValue * volume);
 
         sampleOut[index    ] = sampleValue;
         sampleOut[index + 1] = sampleValue;
+
+        tSine += 2.0 * math.PI * (cast(f32) 1.0 / wavePeriod);
         runningSampleIndex += 1;
     }
 
-    directSound.unlockBuffer(g_soundBuffer, region1, region1Size, region2, region2Size);
+    directsound.unlockBuffer(g_soundBuffer, region1, region1Size, region2, region2Size);
 }
 
 renderWeirdGradient :: proc(using buffer : ^BitmapBuffer, blueOffset, greenOffset : int) {
@@ -339,7 +349,7 @@ resizeDibSection :: proc(using buffer : ^BitmapBuffer, bitmapWidth, bitmapHeight
     using winapi;
 
     if memory != nil {
-        virtualFree(memory, 0, MemoryFreeTypeSet{ .Release });
+        virtualFree(memory, 0, MemoryFreeSet{ .Release });
     }
 
     width, height = bitmapWidth, bitmapHeight;
@@ -350,9 +360,10 @@ resizeDibSection :: proc(using buffer : ^BitmapBuffer, bitmapWidth, bitmapHeight
     info.planes = 1; info.bitCount = .Color32; info.compression = .Rgb;
 
     memorySize := width * height * cast(int) bytesPerPixel;
-    allocType  := cast(u32) (MemoryAllocType.Commit | MemoryAllocType.Reserve);
-    protection := cast(u32) (MemoryProtectionType.ReadWrite);
+    allocType  := MemoryAllocSet{ .Commit, .Reserve };
+    protection := MemoryProtectionSet{ .ReadWrite };
     memory = virtualAlloc(nil, cast(uint) memorySize, allocType, protection);
+
     if memory == nil do dumpLastError("VirtualAlloc");
 }
 
@@ -365,7 +376,7 @@ copyBufferToWindow :: proc(buffer : ^BitmapBuffer, deviceContext : winapi.HDC, w
         0, 0, cast(i32) buffer.width, cast(i32) buffer.height,
         buffer.memory, &buffer.info,
         .RgbColors, .SourceCopy,
-    ); success == 0 do dumpLastError("StretchDIBits");
+    ); success == 0 do consoleError("Windows", "StretchDiBits");
 }
 
 getWindowDimensions :: proc(window : winapi.HWnd) -> (width, height : int) {
@@ -377,6 +388,8 @@ getWindowDimensions :: proc(window : winapi.HWnd) -> (width, height : int) {
 }
 
 // ----------------------------------------------------------------------------------------------
+
+// @Todo(Daniel): Change to context.logger
 
 dumpLastError :: #force_inline proc(errString : string, args : ..any) {
     using winapi;
