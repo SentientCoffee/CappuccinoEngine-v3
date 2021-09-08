@@ -64,12 +64,12 @@ Rect :: struct {
 // Utils
 // -----------------------------------------------------------------------------------
 
-bitset_to_integral :: #force_inline proc(set : $SetToCheck/bit_set[$Flags; Integral], flagToBit : $EnumArray/[Flags]$Integral) -> (ret : Integral) {
-    for flag in Flags {
-        if flag in set {
-            ret |= flagToBit[flag];
-        }
-    }
+// bitset_to_integral :: #force_inline proc(set : $SetToCheck/bit_set[$Flags; Integral], flagToBit : $EnumArray/[Flags]$Integral) -> (ret : Integral) {
+//     for flag in Flags {
+//         if flag in set {
+//             ret |= flagToBit[flag];
+//         }
+//     }
 
-    return ret;
-}
+//     return ret;
+// }

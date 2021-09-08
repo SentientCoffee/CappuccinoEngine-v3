@@ -1,7 +1,8 @@
 package directsound;
 
 import "core:fmt";
-import "core:strings";
+import "core:log";
+
 import "externals:winapi";
 
 // -----------------------------------------------------------------------------------
@@ -69,52 +70,52 @@ BufferCaps :: enum u32 {
     TruePlayPosition      = 0x0000_8000,  // 1 << 15 // @Note: Only needed in Windows Vista?
 }
 
-BufferCapsFlags :: enum u32 {
-    PrimaryBuffer,
-    Static,
-    LocalHardware,
-    LocalSoftware,
-    Control3d,
-    ControlFrequency,
-    ControlPan,
-    ControlVolume,
-    ControlPositionNotify,
-    ControlFx,
-    StickyFocus,
-    GlobalFocus,
-    GetCurrentPosition2,
-    Mute3dAtMaxDistance,
-    LocationDefer,
-    TruePlayPosition,
-}
+// BufferCapsFlags :: enum u32 {
+//     PrimaryBuffer,
+//     Static,
+//     LocalHardware,
+//     LocalSoftware,
+//     Control3d,
+//     ControlFrequency,
+//     ControlPan,
+//     ControlVolume,
+//     ControlPositionNotify,
+//     ControlFx,
+//     StickyFocus,
+//     GlobalFocus,
+//     GetCurrentPosition2,
+//     Mute3dAtMaxDistance,
+//     LocationDefer,
+//     TruePlayPosition,
+// }
 
-BufferCapsSet :: bit_set[BufferCapsFlags; u32];
+// BufferCapsSet :: bit_set[BufferCapsFlags; u32];
 
-@(private="file")
-BufferCapsSet_to_u32 :: #force_inline proc(set : BufferCapsSet) -> (ret : u32) {
-    set := set;
-    @static flagToBit := [BufferCapsFlags]u32{
-        .PrimaryBuffer         = cast(u32) (BufferCaps.PrimaryBuffer),
-        .Static                = cast(u32) (BufferCaps.Static),
-        .LocalHardware         = cast(u32) (BufferCaps.LocalHardware),
-        .LocalSoftware         = cast(u32) (BufferCaps.LocalSoftware),
-        .Control3d             = cast(u32) (BufferCaps.Control3d),
-        .ControlFrequency      = cast(u32) (BufferCaps.ControlFrequency),
-        .ControlPan            = cast(u32) (BufferCaps.ControlPan),
-        .ControlVolume         = cast(u32) (BufferCaps.ControlVolume),
-        .ControlPositionNotify = cast(u32) (BufferCaps.ControlPositionNotify),
-        .ControlFx             = cast(u32) (BufferCaps.ControlFx),
-        .StickyFocus           = cast(u32) (BufferCaps.StickyFocus),
-        .GlobalFocus           = cast(u32) (BufferCaps.GlobalFocus),
-        .GetCurrentPosition2   = cast(u32) (BufferCaps.GetCurrentPosition2),
-        .Mute3dAtMaxDistance   = cast(u32) (BufferCaps.Mute3dAtMaxDistance),
-        .LocationDefer         = cast(u32) (BufferCaps.LocationDefer),
-        .TruePlayPosition      = cast(u32) (BufferCaps.TruePlayPosition),
-    };
+// @(private="file")
+// BufferCapsSet_to_u32 :: #force_inline proc(set : BufferCapsSet) -> (ret : u32) {
+//     set := set;
+//     static flagToBit := [BufferCapsFlags]u32{
+//         .PrimaryBuffer         = cast(u32) (BufferCaps.PrimaryBuffer),
+//         .Static                = cast(u32) (BufferCaps.Static),
+//         .LocalHardware         = cast(u32) (BufferCaps.LocalHardware),
+//         .LocalSoftware         = cast(u32) (BufferCaps.LocalSoftware),
+//         .Control3d             = cast(u32) (BufferCaps.Control3d),
+//         .ControlFrequency      = cast(u32) (BufferCaps.ControlFrequency),
+//         .ControlPan            = cast(u32) (BufferCaps.ControlPan),
+//         .ControlVolume         = cast(u32) (BufferCaps.ControlVolume),
+//         .ControlPositionNotify = cast(u32) (BufferCaps.ControlPositionNotify),
+//         .ControlFx             = cast(u32) (BufferCaps.ControlFx),
+//         .StickyFocus           = cast(u32) (BufferCaps.StickyFocus),
+//         .GlobalFocus           = cast(u32) (BufferCaps.GlobalFocus),
+//         .GetCurrentPosition2   = cast(u32) (BufferCaps.GetCurrentPosition2),
+//         .Mute3dAtMaxDistance   = cast(u32) (BufferCaps.Mute3dAtMaxDistance),
+//         .LocationDefer         = cast(u32) (BufferCaps.LocationDefer),
+//         .TruePlayPosition      = cast(u32) (BufferCaps.TruePlayPosition),
+//     };
 
-    ret = winapi.bitset_to_integral(set, flagToBit);
-    return ret;
-}
+//     ret = winapi.bitset_to_integral(set, flagToBit);
+//     return ret;
+// }
 
 // -----------------------------------------------------------------------------------
 
@@ -123,24 +124,24 @@ BufferLock :: enum u32 {
     EntireBuffer    = 0x0000_0002,  // 1 << 1
 }
 
-BufferLockFlags :: enum u32 {
-    FromWriteCursor,
-    EntireBuffer,
-}
+// BufferLockFlags :: enum u32 {
+//     FromWriteCursor,
+//     EntireBuffer,
+// }
 
-BufferLockSet :: bit_set[BufferLockFlags; u32];
+// BufferLockSet :: bit_set[BufferLockFlags; u32];
 
-@(private="file")
-BufferLockSet_to_u32 :: #force_inline proc(set : BufferLockSet) -> (ret : u32) {
-    set := set;
-    @static flagToBit := [BufferLockFlags]u32{
-        .FromWriteCursor = cast(u32) (BufferLock.FromWriteCursor),
-        .EntireBuffer    = cast(u32) (BufferLock.EntireBuffer),
-    };
+// @(private="file")
+// BufferLockSet_to_u32 :: #force_inline proc(set : BufferLockSet) -> (ret : u32) {
+//     set := set;
+//     static flagToBit := [BufferLockFlags]u32{
+//         .FromWriteCursor = cast(u32) (BufferLock.FromWriteCursor),
+//         .EntireBuffer    = cast(u32) (BufferLock.EntireBuffer),
+//     };
 
-    ret = winapi.bitset_to_integral(set, flagToBit);
-    return ret;
-}
+//     ret = winapi.bitset_to_integral(set, flagToBit);
+//     return ret;
+// }
 
 // -----------------------------------------------------------------------------------
 
@@ -153,46 +154,46 @@ BufferPlay :: enum u32 {
     TerminateByPriority = 0x0000_00020,  // 1 << 5
 }
 
-BufferPlayFlags :: enum u32 {
-    Looping,
-    LocalHardware,
-    LocalSoftware,
-    TerminateByTime,
-    TerminateByDistance,
-    TerminateByPriority,
-}
+// BufferPlayFlags :: enum u32 {
+//     Looping,
+//     LocalHardware,
+//     LocalSoftware,
+//     TerminateByTime,
+//     TerminateByDistance,
+//     TerminateByPriority,
+// }
 
-BufferPlaySet :: bit_set[BufferPlayFlags; u32];
+// BufferPlaySet :: bit_set[BufferPlayFlags; u32];
 
-@(private="file")
-BufferPlaySet_to_u32 :: #force_inline proc(set : BufferPlaySet) -> (ret : u32) {
-    set := set;
-    @static flagToBit := [BufferPlayFlags]u32{
-        .Looping             = cast(u32) (BufferPlay.Looping),
-        .LocalHardware       = cast(u32) (BufferPlay.LocalHardware),
-        .LocalSoftware       = cast(u32) (BufferPlay.LocalSoftware),
-        .TerminateByTime     = cast(u32) (BufferPlay.TerminateByTime),
-        .TerminateByDistance = cast(u32) (BufferPlay.TerminateByDistance),
-        .TerminateByPriority = cast(u32) (BufferPlay.TerminateByPriority),
-    };
+// @(private="file")
+// BufferPlaySet_to_u32 :: #force_inline proc(set : BufferPlaySet) -> (ret : u32) {
+//     set := set;
+//     static flagToBit := [BufferPlayFlags]u32{
+//         .Looping             = cast(u32) (BufferPlay.Looping),
+//         .LocalHardware       = cast(u32) (BufferPlay.LocalHardware),
+//         .LocalSoftware       = cast(u32) (BufferPlay.LocalSoftware),
+//         .TerminateByTime     = cast(u32) (BufferPlay.TerminateByTime),
+//         .TerminateByDistance = cast(u32) (BufferPlay.TerminateByDistance),
+//         .TerminateByPriority = cast(u32) (BufferPlay.TerminateByPriority),
+//     };
 
-    if set >= { .LocalSoftware, .LocalHardware } {
-        //
-        // @Todo(Daniel): Log warning about LocalSoftware/LocalHardware here
-        // @Reference: https://docs.microsoft.com/en-us/previous-versions/windows/desktop/ee418074(v=vs.85)
-        //
+//     if set >= { .LocalSoftware, .LocalHardware } {
+//         //
+//         // @Todo(Daniel): Log warning about LocalSoftware/LocalHardware here
+//         // @Reference: https://docs.microsoft.com/en-us/previous-versions/windows/desktop/ee418074(v=vs.85)
+//         //
 
-        if .LocalHardware in set && set > (set & { .TerminateByTime, .TerminateByDistance, .TerminateByPriority }) {
-            set -= { .LocalSoftware };
-        }
-        else {
-            set -= { .LocalHardware, .TerminateByTime, .TerminateByDistance, .TerminateByPriority };
-        }
-    }
+//         if .LocalHardware in set && set > (set & { .TerminateByTime, .TerminateByDistance, .TerminateByPriority }) {
+//             set -= { .LocalSoftware };
+//         }
+//         else {
+//             set -= { .LocalHardware, .TerminateByTime, .TerminateByDistance, .TerminateByPriority };
+//         }
+//     }
 
-    ret = winapi.bitset_to_integral(set, flagToBit);
-    return ret;
-}
+//     ret = winapi.bitset_to_integral(set, flagToBit);
+//     return ret;
+// }
 
 // -----------------------------------------------------------------------------------
 
@@ -355,8 +356,8 @@ WaveFormatEx :: struct {
 // Overloads
 // -----------------------------------------------------------------------------------
 
-lockBuffer :: proc { lockBuffer_set, lockBuffer_u32 };
-playBuffer :: proc { playBuffer_set, playBuffer_u32 };
+lockBuffer :: proc { /* lockBuffer_set, */ lockBuffer_enum, lockBuffer_u32 };
+playBuffer :: proc { /* playBuffer_set, */ playBuffer_enum, playBuffer_u32 };
 
 // -----------------------------------------------------------------------------------
 // Procedures
@@ -413,18 +414,28 @@ getCurrentBufferPosition :: #force_inline proc(buffer : ^Buffer) -> (
     return;
 }
 
-lockBuffer_set :: #force_inline proc(
+// lockBuffer_set :: #force_inline proc(
+//     buffer : ^Buffer,
+//     writePointer, bytesToWrite : winapi.DWord,
+//     flags : BufferLockSet,
+// ) -> (
+//     err : Error,
+//     audioRegion1 : rawptr, region1Size : winapi.DWord,
+//     audioRegion2 : rawptr, region2Size : winapi.DWord,
+// ) {
+//     return lockBuffer_u32(buffer, writePointer, bytesToWrite, BufferLockSet_to_u32(flags));
+// }
+lockBuffer_enum :: #force_inline proc(
     buffer : ^Buffer,
     writePointer, bytesToWrite : winapi.DWord,
-    flags : BufferLockSet,
+    flags : BufferLock,
 ) -> (
     err : Error,
     audioRegion1 : rawptr, region1Size : winapi.DWord,
     audioRegion2 : rawptr, region2Size : winapi.DWord,
 ) {
-    return lockBuffer_u32(buffer, writePointer, bytesToWrite, BufferLockSet_to_u32(flags));
+    return lockBuffer_u32(buffer, writePointer, bytesToWrite, cast(u32) flags);
 }
-
 lockBuffer_u32 :: proc(
     buffer : ^Buffer,
     writePointer, bytesToWrite : winapi.DWord,
@@ -451,11 +462,13 @@ lockBuffer_u32 :: proc(
     return;
 }
 
-playBuffer_set :: #force_inline proc(buffer : ^Buffer, priority : winapi.DWord = 0, flags : BufferPlaySet) -> Error {
-    return cast(Error) buffer->play(0, priority, BufferPlaySet_to_u32(flags));
+// playBuffer_set :: #force_inline proc(buffer : ^Buffer, priority : winapi.DWord = 0, flags : BufferPlaySet) -> Error {
+//     return cast(Error) buffer->play(0, priority, BufferPlaySet_to_u32(flags));
+// }
+playBuffer_enum :: #force_inline proc(buffer : ^Buffer, priority : winapi.DWord = 0, flags : BufferPlay) -> Error {
+    return cast(Error) buffer->play(0, priority, cast(u32) flags);
 }
-
-playBuffer_u32 :: #force_inline proc(buffer : ^Buffer, priority : winapi.DWord = 0, flags : winapi.DWord = 0) -> Error {
+playBuffer_u32 :: #force_inline proc(buffer : ^Buffer, priority : winapi.DWord = 0, flags : u32 = 0) -> Error {
     return cast(Error) buffer->play(0, priority, flags);
 }
 
@@ -476,24 +489,24 @@ unlockBuffer :: #force_inline proc(
 // @Todo(Daniel): Change these to context.logger
 
 @(private)
-dsoundLog :: #force_inline proc(errString : string, args : ..any) {
-    str := fmt.tprintf(errString, ..args);
-    consolePrint("[DirectSound]: {}\n", str);
+dsoundLog :: #force_inline proc(fmtString : string, args : ..any) {
+    str := fmt.tprintf(fmtString, ..args);
+    log.infof("[DirectSound]: {}\n", str);
 }
 
 @(private)
-dsoundError :: #force_inline proc(errString : string, args : ..any) {
-    str := fmt.tprintf(errString, ..args);
-    consolePrint("[DirectSound] Error: {}\n", str);
+dsoundError :: #force_inline proc(fmtString : string, args : ..any) {
+    str := fmt.tprintf(fmtString, ..args);
+    log.errorf("[DirectSound] Error: {}\n", str);
 }
 
-@(private)
-consolePrint :: #force_inline proc(formatString : string, args : ..any) {
-    fmt.printf(formatString, ..args);
-    winapi.outputDebugString(debugCString(formatString, ..args));
+// @(private)
+// consolePrint :: #force_inline proc(formatString : string, args : ..any) {
+//     fmt.printf(formatString, ..args);
+//     winapi.outputDebugString(debugCString(formatString, ..args));
 
-    debugCString :: #force_inline proc(formatString : string, args : ..any) -> cstring {
-        debugStr  := fmt.tprintf(formatString, ..args);
-        return strings.clone_to_cstring(debugStr, context.temp_allocator);
-    }
-}
+//     debugCString :: #force_inline proc(formatString : string, args : ..any) -> cstring {
+//         debugStr  := fmt.tprintf(formatString, ..args);
+//         return strings.clone_to_cstring(debugStr, context.temp_allocator);
+//     }
+// }

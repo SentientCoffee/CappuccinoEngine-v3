@@ -33,44 +33,44 @@ ClassStyle :: enum u32 {
     DropShadow      = 0x0002_0000,  // 1 << 17
 }
 
-ClassStyleFlags :: enum u32 {
-    VRedraw,
-    HRedraw,
-    DblClks,
-    OwnDC,
-    ClassDC,
-    ParentDC,
-    NoClose,
-    SaveBits,
-    ByteAlignClient,
-    ByteAlignWindow,
-    GlobalClass,
-    DropShadow,
-}
+// ClassStyleFlags :: enum u32 {
+//     VRedraw,
+//     HRedraw,
+//     DblClks,
+//     OwnDC,
+//     ClassDC,
+//     ParentDC,
+//     NoClose,
+//     SaveBits,
+//     ByteAlignClient,
+//     ByteAlignWindow,
+//     GlobalClass,
+//     DropShadow,
+// }
 
-ClassStyleSet :: bit_set[ClassStyleFlags; u32];
+// ClassStyleSet :: bit_set[ClassStyleFlags; u32];
 
-@(private="file")
-ClassStyleSet_to_u32 :: proc(set : ClassStyleSet) -> (ret : u32) {
-    set := set;
-    @static flagToBit := [ClassStyleFlags]u32{
-        .VRedraw         = cast(u32) (ClassStyle.VRedraw),
-        .HRedraw         = cast(u32) (ClassStyle.HRedraw),
-        .DblClks         = cast(u32) (ClassStyle.DblClks),
-        .OwnDC           = cast(u32) (ClassStyle.OwnDC),
-        .ClassDC         = cast(u32) (ClassStyle.ClassDC),
-        .ParentDC        = cast(u32) (ClassStyle.ParentDC),
-        .NoClose         = cast(u32) (ClassStyle.NoClose),
-        .SaveBits        = cast(u32) (ClassStyle.SaveBits),
-        .ByteAlignClient = cast(u32) (ClassStyle.ByteAlignClient),
-        .ByteAlignWindow = cast(u32) (ClassStyle.ByteAlignWindow),
-        .GlobalClass     = cast(u32) (ClassStyle.GlobalClass),
-        .DropShadow      = cast(u32) (ClassStyle.DropShadow),
-    };
+// @(private="file")
+// ClassStyleSet_to_u32 :: proc(set : ClassStyleSet) -> (ret : u32) {
+//     set := set;
+//     static flagToBit := [ClassStyleFlags]u32{
+//         .VRedraw         = cast(u32) (ClassStyle.VRedraw),
+//         .HRedraw         = cast(u32) (ClassStyle.HRedraw),
+//         .DblClks         = cast(u32) (ClassStyle.DblClks),
+//         .OwnDC           = cast(u32) (ClassStyle.OwnDC),
+//         .ClassDC         = cast(u32) (ClassStyle.ClassDC),
+//         .ParentDC        = cast(u32) (ClassStyle.ParentDC),
+//         .NoClose         = cast(u32) (ClassStyle.NoClose),
+//         .SaveBits        = cast(u32) (ClassStyle.SaveBits),
+//         .ByteAlignClient = cast(u32) (ClassStyle.ByteAlignClient),
+//         .ByteAlignWindow = cast(u32) (ClassStyle.ByteAlignWindow),
+//         .GlobalClass     = cast(u32) (ClassStyle.GlobalClass),
+//         .DropShadow      = cast(u32) (ClassStyle.DropShadow),
+//     };
 
-    ret = bitset_to_integral(set, flagToBit);
-    return ret;
-}
+//     ret = bitset_to_integral(set, flagToBit);
+//     return ret;
+// }
 
 // -----------------------------------------------------------------------------------
 
@@ -84,40 +84,40 @@ PeekMessage :: enum u32 {
     QueuePostMessage = cast(u32) (QueueStatus.PostMessage | QueueStatus.Hotkey | QueueStatus.Timer) << 16,
 }
 
-PeekMessageFlags :: enum u32 {
-    NoRemove,
-    Remove,
-    NoYield,
-    QueueInput,
-    QueuePaint,
-    QueueSendMessage,
-    QueuePostMessage,
-}
+// PeekMessageFlags :: enum u32 {
+//     NoRemove,
+//     Remove,
+//     NoYield,
+//     QueueInput,
+//     QueuePaint,
+//     QueueSendMessage,
+//     QueuePostMessage,
+// }
 
-PeekMessageSet :: bit_set[PeekMessageFlags; u32];
+// PeekMessageSet :: bit_set[PeekMessageFlags; u32];
 
-@(private="file")
-PeekMessageSet_to_u32 :: #force_inline proc(set : PeekMessageSet) -> (ret : u32) {
-    set := set;
-    @static flagToBit := [PeekMessageFlags]u32{
-        .NoRemove         = cast(u32) (PeekMessage.NoRemove),
-        .Remove           = cast(u32) (PeekMessage.Remove),
-        .NoYield          = cast(u32) (PeekMessage.NoYield),
-        .QueueInput       = cast(u32) (PeekMessage.QueueInput),
-        .QueuePaint       = cast(u32) (PeekMessage.QueuePaint),
-        .QueueSendMessage = cast(u32) (PeekMessage.QueueSendMessage),
-        .QueuePostMessage = cast(u32) (PeekMessage.QueuePostMessage),
-    };
+// @(private="file")
+// PeekMessageSet_to_u32 :: #force_inline proc(set : PeekMessageSet) -> (ret : u32) {
+//     set := set;
+//     static flagToBit := [PeekMessageFlags]u32{
+//         .NoRemove         = cast(u32) (PeekMessage.NoRemove),
+//         .Remove           = cast(u32) (PeekMessage.Remove),
+//         .NoYield          = cast(u32) (PeekMessage.NoYield),
+//         .QueueInput       = cast(u32) (PeekMessage.QueueInput),
+//         .QueuePaint       = cast(u32) (PeekMessage.QueuePaint),
+//         .QueueSendMessage = cast(u32) (PeekMessage.QueueSendMessage),
+//         .QueuePostMessage = cast(u32) (PeekMessage.QueuePostMessage),
+//     };
 
-    if .NoYield in set && !(set > (set & { .NoRemove, .Remove })) {
-        // @Todo(Daniel): Log warning about .NoYield here
-        // @Reference: https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-peekmessagea
-        set += { .NoRemove };
-    }
+//     if .NoYield in set && !(set > (set & { .NoRemove, .Remove })) {
+//         // @Todo(Daniel): Log warning about .NoYield here
+//         // @Reference: https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-peekmessagea
+//         set += { .NoRemove };
+//     }
 
-    ret = bitset_to_integral(set, flagToBit);
-    return ret;
-}
+//     ret = bitset_to_integral(set, flagToBit);
+//     return ret;
+// }
 
 // -----------------------------------------------------------------------------------
 
@@ -138,50 +138,50 @@ QueueStatus :: enum u32 {
     AllInput       = Input | PostMessage | Timer | Paint | Hotkey | SendMessage,
 }
 
-QueueStatusFlags :: enum u32 {
-    Key,
-    MouseMove,
-    MouseButton,
-    PostMessage,
-    Timer,
-    Paint,
-    SendMessage,
-    Hotkey,
-    AllPostMessage,
-    RawInput,
-    Mouse,
-    Input,
-    AllEvents,
-    AllInput,
-}
+// QueueStatusFlags :: enum u32 {
+//     Key,
+//     MouseMove,
+//     MouseButton,
+//     PostMessage,
+//     Timer,
+//     Paint,
+//     SendMessage,
+//     Hotkey,
+//     AllPostMessage,
+//     RawInput,
+//     Mouse,
+//     Input,
+//     AllEvents,
+//     AllInput,
+// }
 
-QueueStatusSet :: bit_set[QueueStatusFlags; u32];
+// QueueStatusSet :: bit_set[QueueStatusFlags; u32];
 
-@(private="file")
-QueueStatusSet_to_u32 :: #force_inline proc(set : QueueStatusSet) -> (ret : u32) {
-    set := set;
-    @static flagToBit := [QueueStatusFlags]u32{
-        .Key            = cast(u32) (QueueStatus.Key),
-        .MouseMove      = cast(u32) (QueueStatus.MouseMove),
-        .MouseButton    = cast(u32) (QueueStatus.MouseButton),
-        .PostMessage    = cast(u32) (QueueStatus.PostMessage),
-        .Timer          = cast(u32) (QueueStatus.Timer),
-        .Paint          = cast(u32) (QueueStatus.Paint),
-        .SendMessage    = cast(u32) (QueueStatus.SendMessage),
-        .Hotkey         = cast(u32) (QueueStatus.Hotkey),
-        .AllPostMessage = cast(u32) (QueueStatus.AllPostMessage),
-        .RawInput       = cast(u32) (QueueStatus.RawInput),
-        .Mouse          = cast(u32) (QueueStatus.Mouse),
-        .Input          = cast(u32) (QueueStatus.Input),
-        .AllEvents      = cast(u32) (QueueStatus.AllEvents),
-        .AllInput       = cast(u32) (QueueStatus.AllInput),
-    };
+// @(private="file")
+// QueueStatusSet_to_u32 :: #force_inline proc(set : QueueStatusSet) -> (ret : u32) {
+//     set := set;
+//     static flagToBit := [QueueStatusFlags]u32{
+//         .Key            = cast(u32) (QueueStatus.Key),
+//         .MouseMove      = cast(u32) (QueueStatus.MouseMove),
+//         .MouseButton    = cast(u32) (QueueStatus.MouseButton),
+//         .PostMessage    = cast(u32) (QueueStatus.PostMessage),
+//         .Timer          = cast(u32) (QueueStatus.Timer),
+//         .Paint          = cast(u32) (QueueStatus.Paint),
+//         .SendMessage    = cast(u32) (QueueStatus.SendMessage),
+//         .Hotkey         = cast(u32) (QueueStatus.Hotkey),
+//         .AllPostMessage = cast(u32) (QueueStatus.AllPostMessage),
+//         .RawInput       = cast(u32) (QueueStatus.RawInput),
+//         .Mouse          = cast(u32) (QueueStatus.Mouse),
+//         .Input          = cast(u32) (QueueStatus.Input),
+//         .AllEvents      = cast(u32) (QueueStatus.AllEvents),
+//         .AllInput       = cast(u32) (QueueStatus.AllInput),
+//     };
 
     
 
-    ret = bitset_to_integral(set, flagToBit);
-    return ret;
-}
+//     ret = bitset_to_integral(set, flagToBit);
+//     return ret;
+// }
 
 // -----------------------------------------------------------------------------------
 
@@ -430,74 +430,74 @@ WindowStyle :: enum u32 {
     TiledWindow      = OverlappedWindow,
 }
 
-WindowStyleFlags :: enum u32 {
-    Overlapped,
-    MaximizeBox,
-    MinimizeBox,
-    ThickFrame,
-    SysMenu,
-    HScroll,
-    VScroll,
-    DialogFrame,
-    Border,
-    Maximize,
-    ClipChildren,
-    ClipSiblings,
-    Disabled,
-    Visible,
-    Minimize,
-    Child,
-    Popup,
+// WindowStyleFlags :: enum u32 {
+//     Overlapped,
+//     MaximizeBox,
+//     MinimizeBox,
+//     ThickFrame,
+//     SysMenu,
+//     HScroll,
+//     VScroll,
+//     DialogFrame,
+//     Border,
+//     Maximize,
+//     ClipChildren,
+//     ClipSiblings,
+//     Disabled,
+//     Visible,
+//     Minimize,
+//     Child,
+//     Popup,
 
-    ChildWindow,
-    Group,
-    Iconic,
-    Tiled,
-    SizeBox,
-    Caption,
-    PopupWindow,
-    OverlappedWindow,
-    TiledWindow,
-}
+//     ChildWindow,
+//     Group,
+//     Iconic,
+//     Tiled,
+//     SizeBox,
+//     Caption,
+//     PopupWindow,
+//     OverlappedWindow,
+//     TiledWindow,
+// }
 
-WindowStyleSet :: bit_set[WindowStyleFlags; u32];
+// WindowStyleSet :: bit_set[WindowStyleFlags; u32];
 
-@(private="file")
-WindowStyleSet_to_u32 :: #force_inline proc(set : WindowStyleSet) -> (ret : u32) {
-    set := set;
-    @static flagToBit := [WindowStyleFlags]u32{
-        .Overlapped       = cast(u32) (WindowStyle.Overlapped),
-        .MaximizeBox      = cast(u32) (WindowStyle.MaximizeBox),
-        .MinimizeBox      = cast(u32) (WindowStyle.MinimizeBox),
-        .ThickFrame       = cast(u32) (WindowStyle.ThickFrame),
-        .SysMenu          = cast(u32) (WindowStyle.SysMenu),
-        .HScroll          = cast(u32) (WindowStyle.HScroll),
-        .VScroll          = cast(u32) (WindowStyle.VScroll),
-        .DialogFrame      = cast(u32) (WindowStyle.DialogFrame),
-        .Border           = cast(u32) (WindowStyle.Border),
-        .Maximize         = cast(u32) (WindowStyle.Maximize),
-        .ClipChildren     = cast(u32) (WindowStyle.ClipChildren),
-        .ClipSiblings     = cast(u32) (WindowStyle.ClipSiblings),
-        .Disabled         = cast(u32) (WindowStyle.Disabled),
-        .Visible          = cast(u32) (WindowStyle.Visible),
-        .Minimize         = cast(u32) (WindowStyle.Minimize),
-        .Child            = cast(u32) (WindowStyle.Child),
-        .Popup            = cast(u32) (WindowStyle.Popup),
+// @(private="file")
+// WindowStyleSet_to_u32 :: #force_inline proc(set : WindowStyleSet) -> (ret : u32) {
+//     set := set;
+//     static flagToBit := [WindowStyleFlags]u32{
+//         .Overlapped       = cast(u32) (WindowStyle.Overlapped),
+//         .MaximizeBox      = cast(u32) (WindowStyle.MaximizeBox),
+//         .MinimizeBox      = cast(u32) (WindowStyle.MinimizeBox),
+//         .ThickFrame       = cast(u32) (WindowStyle.ThickFrame),
+//         .SysMenu          = cast(u32) (WindowStyle.SysMenu),
+//         .HScroll          = cast(u32) (WindowStyle.HScroll),
+//         .VScroll          = cast(u32) (WindowStyle.VScroll),
+//         .DialogFrame      = cast(u32) (WindowStyle.DialogFrame),
+//         .Border           = cast(u32) (WindowStyle.Border),
+//         .Maximize         = cast(u32) (WindowStyle.Maximize),
+//         .ClipChildren     = cast(u32) (WindowStyle.ClipChildren),
+//         .ClipSiblings     = cast(u32) (WindowStyle.ClipSiblings),
+//         .Disabled         = cast(u32) (WindowStyle.Disabled),
+//         .Visible          = cast(u32) (WindowStyle.Visible),
+//         .Minimize         = cast(u32) (WindowStyle.Minimize),
+//         .Child            = cast(u32) (WindowStyle.Child),
+//         .Popup            = cast(u32) (WindowStyle.Popup),
 
-        .ChildWindow      = cast(u32) (WindowStyle.ChildWindow),
-        .Group            = cast(u32) (WindowStyle.Group),
-        .Iconic           = cast(u32) (WindowStyle.Iconic),
-        .Tiled            = cast(u32) (WindowStyle.Tiled),
-        .SizeBox          = cast(u32) (WindowStyle.SizeBox),
-        .Caption          = cast(u32) (WindowStyle.Caption),
-        .PopupWindow      = cast(u32) (WindowStyle.PopupWindow),
-        .OverlappedWindow = cast(u32) (WindowStyle.OverlappedWindow),
-        .TiledWindow      = cast(u32) (WindowStyle.TiledWindow),
-    };
+//         .ChildWindow      = cast(u32) (WindowStyle.ChildWindow),
+//         .Group            = cast(u32) (WindowStyle.Group),
+//         .Iconic           = cast(u32) (WindowStyle.Iconic),
+//         .Tiled            = cast(u32) (WindowStyle.Tiled),
+//         .SizeBox          = cast(u32) (WindowStyle.SizeBox),
+//         .Caption          = cast(u32) (WindowStyle.Caption),
+//         .PopupWindow      = cast(u32) (WindowStyle.PopupWindow),
+//         .OverlappedWindow = cast(u32) (WindowStyle.OverlappedWindow),
+//         .TiledWindow      = cast(u32) (WindowStyle.TiledWindow),
+//     };
 
-    ret = bitset_to_integral(set, flagToBit);
-    return ret;
-}
+//     ret = bitset_to_integral(set, flagToBit);
+//     return ret;
+// }
 
 // -----------------------------------------------------------------------------------
 // Structs
@@ -538,7 +538,8 @@ PaintStruct :: struct {
 // }
 
 WndClassA :: struct {
-    style               : union{ ClassStyleSet, u32 },
+    // style               : union{ ClassStyleSet, u32 },
+    style               : ClassStyle,
     windowProc          : WndProc,
     clsExtra, wndExtra  : i32,
     instance            : HInstance,
@@ -549,7 +550,8 @@ WndClassA :: struct {
 }
 
 WndClassW :: struct {
-    style               : union{ ClassStyleSet, u32 },
+    // style               : union{ ClassStyleSet, u32 },
+    style               : ClassStyle,
     windowProc          : WndProc,
     clsExtra, wndExtra  : i32,
     instance            : HInstance,
@@ -561,7 +563,8 @@ WndClassW :: struct {
 
 WndClassExA :: struct {
     size                : u32,
-    style               : union{ ClassStyleSet, u32 },
+    // style               : union{ ClassStyleSet, u32 },
+    style               : ClassStyle,
     windowProc          : WndProc,
     clsExtra, wndExtra  : i32,
     instance            : HInstance,
@@ -574,7 +577,8 @@ WndClassExA :: struct {
 
 WndClassExW :: struct {
     size                : u32,
-    style               : union{ ClassStyleSet, u32 },
+    // style               : union{ ClassStyleSet, u32 },
+    style               : ClassStyle,
     windowProc          : WndProc,
     clsExtra, wndExtra  : i32,
     instance            : HInstance,
@@ -600,30 +604,38 @@ translateMessage :: proc { wTranslateMessage };
 defWindowProc    :: proc { defWindowProcA };
 dispatchMessage  :: proc { dispatchMessageA };
 getMessage       :: proc { getMessageA };
-peekMessage      :: proc { peekMessageA_set, peekMessageA_u32 };
+peekMessage      :: proc { /* peekMessageA_set, */ peekMessageA_enum, peekMessageA_u32 };
 registerClass    :: proc { registerClassA, registerClassW, registerClassExA, registerClassExW };
 
 createWindow :: proc {
-    createWindowA_set, createWindowA_u32,
-    createWindowW_set, createWindowW_u32,
-    createWindowExA_set, createWindowExA_u32,
-    createWindowExW_set, createWindowExW_u32,
+    /* createWindowA_set, */   createWindowA_enum,   createWindowA_u32,
+    /* createWindowW_set, */   createWindowW_enum,   createWindowW_u32,
+    /* createWindowExA_set, */ createWindowExA_enum, createWindowExA_u32,
+    /* createWindowExW_set, */ createWindowExW_enum, createWindowExW_u32,
 };
 
 // -----------------------------------------------------------------------------------
 // Procedures
 // -----------------------------------------------------------------------------------
 
-createWindowA_set :: proc(
+// createWindowA_set :: proc(
+//     className, title : cstring,
+//     style : WindowStyleSet,
+//     x, y, w, h : i32,
+//     parent : HWnd, menu : HMenu, instance : HInstance,
+//     param : rawptr) -> HWnd
+// {
+//     return createWindowExA_u32(0, className, title, WindowStyleSet_to_u32(style), x, y, w, h, parent, menu, instance, param);
+// }
+createWindowA_enum :: proc(
     className, title : cstring,
-    style : WindowStyleSet,
+    style : WindowStyle,
     x, y, w, h : i32,
     parent : HWnd, menu : HMenu, instance : HInstance,
     param : rawptr) -> HWnd
 {
-    return createWindowExA_u32(0, className, title, WindowStyleSet_to_u32(style), x, y, w, h, parent, menu, instance, param);
+    return createWindowExA_enum(0, className, title, style, x, y, w, h, parent, menu, instance, param);
 }
-
 createWindowA_u32 :: proc(
     className, title : cstring,
     style : DWord,
@@ -634,16 +646,24 @@ createWindowA_u32 :: proc(
     return createWindowExA_u32(0, className, title, style, x, y, w, h, parent, menu, instance, param);
 }
 
-createWindowW_set :: proc(
+// createWindowW_set :: proc(
+//     className, title : WString,
+//     style : WindowStyleSet,
+//     x, y, w, h : i32,
+//     parent : HWnd, menu : HMenu, instance : HInstance,
+//     param : rawptr) -> HWnd
+// {
+//     return createWindowExW_u32(0, className, title, WindowStyleSet_to_u32(style), x, y, w, h, parent, menu, instance, param);
+// }
+createWindowW_enum :: proc(
     className, title : WString,
-    style : WindowStyleSet,
+    style : WindowStyle,
     x, y, w, h : i32,
     parent : HWnd, menu : HMenu, instance : HInstance,
     param : rawptr) -> HWnd
 {
-    return createWindowExW_u32(0, className, title, WindowStyleSet_to_u32(style), x, y, w, h, parent, menu, instance, param);
+    return createWindowExW_enum(0, className, title, style, x, y, w, h, parent, menu, instance, param);
 }
-
 createWindowW_u32 :: proc(
     className, title : WString,
     style : DWord,
@@ -654,17 +674,26 @@ createWindowW_u32 :: proc(
     return createWindowExW_u32(0, className, title, style, x, y, w, h, parent, menu, instance, param);
 }
 
-createWindowExA_set :: proc(
+// createWindowExA_set :: proc(
+//     extendedStyle : DWord,
+//     className, title : cstring,
+//     style : WindowStyleSet,
+//     x, y, w, h : i32,
+//     parent : HWnd, menu : HMenu, instance : HInstance,
+//     param : rawptr) -> HWnd
+// {
+//     return wCreateWindowExA(extendedStyle, className, title, WindowStyleSet_to_u32(style), x, y, w, h, parent, menu, instance, param);
+// }
+createWindowExA_enum :: proc(
     extendedStyle : DWord,
     className, title : cstring,
-    style : WindowStyleSet,
+    style : WindowStyle,
     x, y, w, h : i32,
     parent : HWnd, menu : HMenu, instance : HInstance,
     param : rawptr) -> HWnd
 {
-    return wCreateWindowExA(extendedStyle, className, title, WindowStyleSet_to_u32(style), x, y, w, h, parent, menu, instance, param);
+    return wCreateWindowExA(extendedStyle, className, title, cast(u32) style, x, y, w, h, parent, menu, instance, param);
 }
-
 createWindowExA_u32 :: proc(
     extendedStyle : DWord,
     className, title : cstring,
@@ -676,17 +705,26 @@ createWindowExA_u32 :: proc(
     return wCreateWindowExA(extendedStyle, className, title, style, x, y, w, h, parent, menu, instance, param);
 }
 
-createWindowExW_set :: proc(
+// createWindowExW_set :: proc(
+//     extendedStyle : DWord,
+//     className, title : WString,
+//     style : WindowStyleSet,
+//     x, y, w, h : i32,
+//     parent : HWnd, menu : HMenu, instance : HInstance,
+//     param : rawptr) -> HWnd
+// {
+//     return wCreateWindowExW(extendedStyle, className, title, WindowStyleSet_to_u32(style), x, y, w, h, parent, menu, instance, param);
+// }
+createWindowExW_enum :: proc(
     extendedStyle : DWord,
     className, title : WString,
-    style : WindowStyleSet,
+    style : WindowStyle,
     x, y, w, h : i32,
     parent : HWnd, menu : HMenu, instance : HInstance,
     param : rawptr) -> HWnd
 {
-    return wCreateWindowExW(extendedStyle, className, title, WindowStyleSet_to_u32(style), x, y, w, h, parent, menu, instance, param);
+    return wCreateWindowExW(extendedStyle, className, title, cast(u32) style, x, y, w, h, parent, menu, instance, param);
 }
-
 createWindowExW_u32 :: proc(
     extendedStyle : DWord,
     className, title : WString,
@@ -710,51 +748,93 @@ dispatchMessageW :: proc(message : ^Msg) -> LResult do return wDispatchMessageW(
 
 // -----------------------------------------------------------------------------------
 
-getMessageA :: proc(message : ^Msg, handle : HWnd, messageFilterMin : u32, messageFilterMax : u32) -> Bool do return wGetMessageA(message, handle, messageFilterMin, messageFilterMax);
-getMessageW :: proc(message : ^Msg, handle : HWnd, messageFilterMin : u32, messageFilterMax : u32) -> Bool do return wGetMessageW(message, handle, messageFilterMin, messageFilterMax);
+getMessageA :: proc(handle : HWnd, messageFilterMin, messageFilterMax : u32) -> (success : Bool, message : Msg) {
+    success = wGetMessageA(&message, handle, messageFilterMin, messageFilterMax);
+    return;
+}
+getMessageW :: proc(handle : HWnd, messageFilterMin, messageFilterMax : u32) -> (success : Bool, message : Msg) {
+    success = wGetMessageW(&message, handle, messageFilterMin, messageFilterMax);
+    return;
+}
 
 // -----------------------------------------------------------------------------------
 
-peekMessageA_set :: proc(message : ^Msg, handle : HWnd, messageFilterMin : u32, messageFilterMax : u32, removeMessage : PeekMessageSet) -> Bool {
-    return wPeekMessageA(message, handle, messageFilterMin, messageFilterMax, PeekMessageSet_to_u32(removeMessage));
+// peekMessageA_set :: proc(
+//     handle : HWnd,
+//     messageFilterMin, messageFilterMax : u32,
+//     removeMessage : PeekMessageSet,
+// ) -> (success : Bool, message : Msg) {
+//     success = wPeekMessageA(&message, handle, messageFilterMin, messageFilterMax, PeekMessageSet_to_u32(removeMessage));
+//     return;
+// }
+peekMessageA_enum :: proc(
+    handle : HWnd,
+    messageFilterMin, messageFilterMax : u32,
+    removeMessage : PeekMessage,
+) -> (success : Bool, message : Msg) {
+    success = wPeekMessageA(&message, handle, messageFilterMin, messageFilterMax, cast(u32) removeMessage);
+    return;
 }
-peekMessageA_u32 :: proc(message : ^Msg, handle : HWnd, messageFilterMin : u32, messageFilterMax : u32, removeMessage : u32) -> Bool {
-    return wPeekMessageA(message, handle, messageFilterMin, messageFilterMax, removeMessage);
+peekMessageA_u32 :: proc(
+    handle : HWnd,
+    messageFilterMin, messageFilterMax : u32,
+    removeMessage : u32,
+) -> (success : Bool, message : Msg) {
+    success = wPeekMessageA(&message, handle, messageFilterMin, messageFilterMax, removeMessage);
+    return;
 }
 
-peekMessageW_set :: proc(message : ^Msg, handle : HWnd, messageFilterMin : u32, messageFilterMax : u32, removeMessage : PeekMessageSet) -> Bool {
-    return wPeekMessageW(message, handle, messageFilterMin, messageFilterMax, PeekMessageSet_to_u32(removeMessage));
+// peekMessageW_set :: proc(
+//     handle : HWnd,
+//     messageFilterMin, messageFilterMax : u32,
+//     removeMessage : PeekMessageSet,
+// ) -> (success : Bool, message : Msg) {
+//     success = wPeekMessageW(&message, handle, messageFilterMin, messageFilterMax, PeekMessageSet_to_u32(removeMessage));
+//     return;
+// }
+peekMessageW_enum :: proc(
+    handle : HWnd,
+    messageFilterMin, messageFilterMax : u32,
+    removeMessage : PeekMessage,
+) -> (success : Bool, message : Msg) {
+    success = wPeekMessageW(&message, handle, messageFilterMin, messageFilterMax, cast(u32) removeMessage);
+    return;
 }
-peekMessageW_u32 :: proc(message : ^Msg, handle : HWnd, messageFilterMin : u32, messageFilterMax : u32, removeMessage : u32) -> Bool {
-    return wPeekMessageW(message, handle, messageFilterMin, messageFilterMax, removeMessage);
+peekMessageW_u32 :: proc(
+    handle : HWnd,
+    messageFilterMin, messageFilterMax : u32,
+    removeMessage : u32,
+) -> (success : Bool, message : Msg) {
+    success = wPeekMessageW(&message, handle, messageFilterMin, messageFilterMax, removeMessage);
+    return;
 }
 
 // -----------------------------------------------------------------------------------
 
 registerClassA :: proc(windowClass : ^WndClassA) -> Atom {
-    #partial switch type in windowClass.style {
-        case ClassStyleSet: windowClass.style = ClassStyleSet_to_u32(type);
-    }
+    // #partial switch type in windowClass.style {
+    //     case ClassStyleSet: windowClass.style = ClassStyleSet_to_u32(type);
+    // }
     return wRegisterClassA(windowClass);
 }
 registerClassW :: proc(windowClass : ^WndClassW) -> Atom {
-    #partial switch type in windowClass.style {
-        case ClassStyleSet: windowClass.style = ClassStyleSet_to_u32(type);
-    }
+    // #partial switch type in windowClass.style {
+    //     case ClassStyleSet: windowClass.style = ClassStyleSet_to_u32(type);
+    // }
     return wRegisterClassW(windowClass);
 }
 
 registerClassExA :: proc(windowClass : ^WndClassExA) -> Atom {
-    #partial switch type in windowClass.style {
-        case ClassStyleSet: windowClass.style = ClassStyleSet_to_u32(type);
-    }
+    // #partial switch type in windowClass.style {
+    //     case ClassStyleSet: windowClass.style = ClassStyleSet_to_u32(type);
+    // }
     return wRegisterClassExA(windowClass);
 }
 
 registerClassExW :: proc(windowClass : ^WndClassExW) -> Atom {
-    #partial switch type in windowClass.style {
-        case ClassStyleSet: windowClass.style = ClassStyleSet_to_u32(type);
-    }
+    // #partial switch type in windowClass.style {
+    //     case ClassStyleSet: windowClass.style = ClassStyleSet_to_u32(type);
+    // }
     return wRegisterClassExW(windowClass);
 }
 

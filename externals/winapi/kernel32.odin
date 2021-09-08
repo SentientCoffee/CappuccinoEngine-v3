@@ -33,47 +33,47 @@ LoadLibrary :: enum u32 {
     SafeCurrentDirs       = 0x0000_1000,  // 1 << 12
 }
 
-LoadLibraryFlags :: enum u32 {
-    AsDatafile,
-    WithAlteredSearchPath,
-    IgnoreCodeAuthLevel,
-    AsImageResource,
-    RequireSignedTarget,
-    AsDatafileExclusive,
-    SearchDllLoadDir,
-    SearchAppicationDir,
-    SearchUserDirs,
-    SearchSystem32,
-    SearchDefaultDirs,
-    SafeCurrentDirs,
-}
+// LoadLibraryFlags :: enum u32 {
+//     AsDatafile,
+//     WithAlteredSearchPath,
+//     IgnoreCodeAuthLevel,
+//     AsImageResource,
+//     RequireSignedTarget,
+//     AsDatafileExclusive,
+//     SearchDllLoadDir,
+//     SearchAppicationDir,
+//     SearchUserDirs,
+//     SearchSystem32,
+//     SearchDefaultDirs,
+//     SafeCurrentDirs,
+// }
 
-LoadLibrarySet :: bit_set[LoadLibraryFlags; u32];
+// LoadLibrarySet :: bit_set[LoadLibraryFlags; u32];
 
-@(private="file")
-LoadLibrarySet_to_u32 :: #force_inline proc(set : LoadLibrarySet) -> (ret : u32) {
-    set := set;
-    @static flagToBit := [LoadLibraryFlags]u32{
-        .AsDatafile            = cast(u32) (LoadLibrary.AsDatafile),
-        .WithAlteredSearchPath = cast(u32) (LoadLibrary.WithAlteredSearchPath),
-        .IgnoreCodeAuthLevel   = cast(u32) (LoadLibrary.IgnoreCodeAuthLevel),
-        .AsImageResource       = cast(u32) (LoadLibrary.AsImageResource),
-        .AsDatafileExclusive   = cast(u32) (LoadLibrary.AsDatafileExclusive),
-        .RequireSignedTarget   = cast(u32) (LoadLibrary.RequireSignedTarget),
-        .SearchDllLoadDir      = cast(u32) (LoadLibrary.SearchDllLoadDir),
-        .SearchAppicationDir   = cast(u32) (LoadLibrary.SearchAppicationDir),
-        .SearchUserDirs        = cast(u32) (LoadLibrary.SearchUserDirs),
-        .SearchSystem32        = cast(u32) (LoadLibrary.SearchSystem32),
-        .SearchDefaultDirs     = cast(u32) (LoadLibrary.SearchDefaultDirs),
-    };
+// @(private="file")
+// LoadLibrarySet_to_u32 :: #force_inline proc(set : LoadLibrarySet) -> (ret : u32) {
+//     set := set;
+//     static flagToBit := [LoadLibraryFlags]u32{
+//         .AsDatafile            = cast(u32) (LoadLibrary.AsDatafile),
+//         .WithAlteredSearchPath = cast(u32) (LoadLibrary.WithAlteredSearchPath),
+//         .IgnoreCodeAuthLevel   = cast(u32) (LoadLibrary.IgnoreCodeAuthLevel),
+//         .AsImageResource       = cast(u32) (LoadLibrary.AsImageResource),
+//         .AsDatafileExclusive   = cast(u32) (LoadLibrary.AsDatafileExclusive),
+//         .RequireSignedTarget   = cast(u32) (LoadLibrary.RequireSignedTarget),
+//         .SearchDllLoadDir      = cast(u32) (LoadLibrary.SearchDllLoadDir),
+//         .SearchAppicationDir   = cast(u32) (LoadLibrary.SearchAppicationDir),
+//         .SearchUserDirs        = cast(u32) (LoadLibrary.SearchUserDirs),
+//         .SearchSystem32        = cast(u32) (LoadLibrary.SearchSystem32),
+//         .SearchDefaultDirs     = cast(u32) (LoadLibrary.SearchDefaultDirs),
+//     };
 
-    if .SafeCurrentDirs in set {
-        set += { .SearchDefaultDirs };
-    }
+//     if .SafeCurrentDirs in set {
+//         set += { .SearchDefaultDirs };
+//     }
 
-    ret = bitset_to_integral(set, flagToBit);
-    return ret;
-}
+//     ret = bitset_to_integral(set, flagToBit);
+//     return ret;
+// }
 
 // -----------------------------------------------------------------------------------
 
@@ -88,53 +88,53 @@ MemoryAlloc :: enum u32 {
     LargePages = 0x2000_0000,  // 1 << 29
 }
 
-MemoryAllocFlags :: enum u32 {
-    Commit,
-    Reserve,
-    Reset,
-    TopDown,
-    WriteWatch,
-    Physical,
-    ResetUndo,
-    LargePages,
-}
+// MemoryAllocFlags :: enum u32 {
+//     Commit,
+//     Reserve,
+//     Reset,
+//     TopDown,
+//     WriteWatch,
+//     Physical,
+//     ResetUndo,
+//     LargePages,
+// }
 
-MemoryAllocSet :: bit_set[MemoryAllocFlags; u32];
+// MemoryAllocSet :: bit_set[MemoryAllocFlags; u32];
 
-@(private="file")
-MemoryAllocSet_to_u32 :: proc(set : MemoryAllocSet) -> (ret : u32) {
-    set := set;
-    @static flagToBit := [MemoryAllocFlags]u32{
-        .Commit     = cast(u32) (MemoryAlloc.Commit),
-        .Reserve    = cast(u32) (MemoryAlloc.Reserve),
-        .Reset      = cast(u32) (MemoryAlloc.Reset),
-        .TopDown    = cast(u32) (MemoryAlloc.TopDown),
-        .WriteWatch = cast(u32) (MemoryAlloc.WriteWatch),
-        .Physical   = cast(u32) (MemoryAlloc.Physical),
-        .ResetUndo  = cast(u32) (MemoryAlloc.ResetUndo),
-        .LargePages = cast(u32) (MemoryAlloc.LargePages),
-    };
+// @(private="file")
+// MemoryAllocSet_to_u32 :: proc(set : MemoryAllocSet) -> (ret : u32) {
+//     set := set;
+//     static flagToBit := [MemoryAllocFlags]u32{
+//         .Commit     = cast(u32) (MemoryAlloc.Commit),
+//         .Reserve    = cast(u32) (MemoryAlloc.Reserve),
+//         .Reset      = cast(u32) (MemoryAlloc.Reset),
+//         .TopDown    = cast(u32) (MemoryAlloc.TopDown),
+//         .WriteWatch = cast(u32) (MemoryAlloc.WriteWatch),
+//         .Physical   = cast(u32) (MemoryAlloc.Physical),
+//         .ResetUndo  = cast(u32) (MemoryAlloc.ResetUndo),
+//         .LargePages = cast(u32) (MemoryAlloc.LargePages),
+//     };
 
-    if .ResetUndo in set {
-        // @Todo(Daniel): Log warning about .ResetUndo here
-        set = {};
-        set += { .ResetUndo };
-    }
-    else {
-        if .LargePages in set {
-            // @Todo(Daniel): Log large page minimum here
-            set += { .Commit, .Reserve };
-        }
+//     if .ResetUndo in set {
+//         // @Todo(Daniel): Log warning about .ResetUndo here
+//         set = {};
+//         set += { .ResetUndo };
+//     }
+//     else {
+//         if .LargePages in set {
+//             // @Todo(Daniel): Log large page minimum here
+//             set += { .Commit, .Reserve };
+//         }
 
-        if .WriteWatch in set {
-            set += { .Reserve };
-        }
-    }
+//         if .WriteWatch in set {
+//             set += { .Reserve };
+//         }
+//     }
 
 
-    ret = bitset_to_integral(set, flagToBit);
-    return ret;
-}
+//     ret = bitset_to_integral(set, flagToBit);
+//     return ret;
+// }
 
 // -----------------------------------------------------------------------------------
 
@@ -145,28 +145,28 @@ MemoryFree :: enum u32 {
     PreservePlaceholder  = 0x0000_0002 | Release,  // 1 << 1
 }
 
-MemoryFreeFlags :: enum u32 {
-    Decommit,
-    Release,
-    CoalescePlaceholders,
-    PreservePlaceholder,
-}
+// MemoryFreeFlags :: enum u32 {
+//     Decommit,
+//     Release,
+//     CoalescePlaceholders,
+//     PreservePlaceholder,
+// }
 
-MemoryFreeSet :: bit_set[MemoryFreeFlags; u32];
+// MemoryFreeSet :: bit_set[MemoryFreeFlags; u32];
 
-@(private="file")
-MemoryFreeSet_to_u32 :: #force_inline proc(set : MemoryFreeSet) -> (ret : u32) {
-    set := set;
-    @static flagToBit := [MemoryFreeFlags]u32{
-        .Decommit             = cast(u32) (MemoryFree.Decommit),
-        .Release              = cast(u32) (MemoryFree.Release),
-        .CoalescePlaceholders = cast(u32) (MemoryFree.CoalescePlaceholders),
-        .PreservePlaceholder  = cast(u32) (MemoryFree.PreservePlaceholder),
-    };
+// @(private="file")
+// MemoryFreeSet_to_u32 :: #force_inline proc(set : MemoryFreeSet) -> (ret : u32) {
+//     set := set;
+//     static flagToBit := [MemoryFreeFlags]u32{
+//         .Decommit             = cast(u32) (MemoryFree.Decommit),
+//         .Release              = cast(u32) (MemoryFree.Release),
+//         .CoalescePlaceholders = cast(u32) (MemoryFree.CoalescePlaceholders),
+//         .PreservePlaceholder  = cast(u32) (MemoryFree.PreservePlaceholder),
+//     };
 
-    ret = bitset_to_integral(set, flagToBit);
-    return ret;
-}
+//     ret = bitset_to_integral(set, flagToBit);
+//     return ret;
+// }
 
 // -----------------------------------------------------------------------------------
 
@@ -186,60 +186,73 @@ MemoryProtection :: enum u32 {
     TargetsNoUpdate  = 0x4000_0000,  // 1 << 30
 }
 
-MemoryProtectionFlags :: enum u32 {
-    NoAccess,
-    ReadOnly,
-    ReadWrite,
-    WriteCopy,
-    Execute,
-    ExecuteRead,
-    ExecuteReadWrite,
-    ExecuteWriteCopy,
-    Guard,
-    NoCache,
-    WriteCombine,
-    TargetsInvalid,
-    TargetsNoUpdate,
-}
+// MemoryProtectionFlags :: enum u32 {
+//     NoAccess,
+//     ReadOnly,
+//     ReadWrite,
+//     WriteCopy,
+//     Execute,
+//     ExecuteRead,
+//     ExecuteReadWrite,
+//     ExecuteWriteCopy,
+//     Guard,
+//     NoCache,
+//     WriteCombine,
+//     TargetsInvalid,
+//     TargetsNoUpdate,
+// }
 
-MemoryProtectionSet :: bit_set[MemoryProtectionFlags; u32];
+// MemoryProtectionSet :: bit_set[MemoryProtectionFlags; u32];
 
-@(private="file")
-MemoryProtectionSet_to_u32 :: #force_inline proc(set : MemoryProtectionSet) -> (ret : u32) {
-    set := set;
-    @static flagToBit := [MemoryProtectionFlags]u32{
-        .NoAccess         = cast(u32) (MemoryProtection.NoAccess),
-        .ReadOnly         = cast(u32) (MemoryProtection.ReadOnly),
-        .ReadWrite        = cast(u32) (MemoryProtection.ReadWrite),
-        .WriteCopy        = cast(u32) (MemoryProtection.WriteCopy),
-        .Execute          = cast(u32) (MemoryProtection.Execute),
-        .ExecuteRead      = cast(u32) (MemoryProtection.ExecuteRead),
-        .ExecuteReadWrite = cast(u32) (MemoryProtection.ExecuteReadWrite),
-        .ExecuteWriteCopy = cast(u32) (MemoryProtection.ExecuteWriteCopy),
-        .Guard            = cast(u32) (MemoryProtection.Guard),
-        .NoCache          = cast(u32) (MemoryProtection.NoCache),
-        .WriteCombine     = cast(u32) (MemoryProtection.WriteCombine),
-        .TargetsInvalid   = cast(u32) (MemoryProtection.TargetsInvalid),
-        .TargetsNoUpdate  = cast(u32) (MemoryProtection.TargetsNoUpdate),
-    };
+// @(private="file")
+// MemoryProtectionSet_to_u32 :: #force_inline proc(set : MemoryProtectionSet) -> (ret : u32) {
+//     set := set;
+//     static flagToBit := [MemoryProtectionFlags]u32{
+//         .NoAccess         = cast(u32) (MemoryProtection.NoAccess),
+//         .ReadOnly         = cast(u32) (MemoryProtection.ReadOnly),
+//         .ReadWrite        = cast(u32) (MemoryProtection.ReadWrite),
+//         .WriteCopy        = cast(u32) (MemoryProtection.WriteCopy),
+//         .Execute          = cast(u32) (MemoryProtection.Execute),
+//         .ExecuteRead      = cast(u32) (MemoryProtection.ExecuteRead),
+//         .ExecuteReadWrite = cast(u32) (MemoryProtection.ExecuteReadWrite),
+//         .ExecuteWriteCopy = cast(u32) (MemoryProtection.ExecuteWriteCopy),
+//         .Guard            = cast(u32) (MemoryProtection.Guard),
+//         .NoCache          = cast(u32) (MemoryProtection.NoCache),
+//         .WriteCombine     = cast(u32) (MemoryProtection.WriteCombine),
+//         .TargetsInvalid   = cast(u32) (MemoryProtection.TargetsInvalid),
+//         .TargetsNoUpdate  = cast(u32) (MemoryProtection.TargetsNoUpdate),
+//     };
 
-    if set >= { .NoAccess, .Guard } {
-        // @Todo(Daniel): Log warning about .Guard here
-        set -= { .Guard };
-    }
+//     if set >= { .NoAccess, .Guard } {
+//         // @Todo(Daniel): Log warning about .Guard here
+//         set -= { .Guard };
+//     }
 
-    if (set & { .NoAccess, .Guard, .NoCache, .WriteCombine }) > { .NoCache } {
-        // @Todo(Daniel): Log warning about .NoCache here
-        set -= { .NoCache };
-    }
+//     if (set & { .NoAccess, .Guard, .NoCache, .WriteCombine }) > { .NoCache } {
+//         // @Todo(Daniel): Log warning about .NoCache here
+//         set -= { .NoCache };
+//     }
 
-    if (set & { .NoAccess, .Guard, .NoCache, .WriteCombine }) > { .WriteCombine } {
-        // @Todo(Daniel): Log warning about .WriteCombine here
-        set -= { .WriteCombine };
-    }
+//     if (set & { .NoAccess, .Guard, .NoCache, .WriteCombine }) > { .WriteCombine } {
+//         // @Todo(Daniel): Log warning about .WriteCombine here
+//         set -= { .WriteCombine };
+//     }
 
-    ret = bitset_to_integral(set, flagToBit);
-    return ret;
+//     ret = bitset_to_integral(set, flagToBit);
+//     return ret;
+// }
+
+
+// -----------------------------------------------------------------------------------
+// Structs
+// -----------------------------------------------------------------------------------
+
+LargeInteger :: struct #raw_union {
+    using u : struct {
+        lowPart : DWord,
+        highPart : i32,
+    },
+    quadPart : i64,
 }
 
 // -----------------------------------------------------------------------------------
@@ -250,15 +263,15 @@ MemoryProtectionSet_to_u32 :: #force_inline proc(set : MemoryProtectionSet) -> (
 getModuleHandle   :: proc { getModuleHandleA, getModuleHandleW, getModuleHandleA_nil };
 getProcAddress    :: proc { wGetProcAddress };
 outputDebugString :: proc { outputDebugStringA, outputDebugStringW };
-virtualAlloc      :: proc { virtualAlloc_set, virtualAlloc_u32 };
-virtualFree       :: proc { virtualFree_set, virtualFree_u32 };
+virtualAlloc      :: proc { /* virtualAlloc_set, */ virtualAlloc_enum, virtualAlloc_u32 };
+virtualFree       :: proc { /* virtualFree_set, */  virtualFree_enum,  virtualFree_u32 };
 
 loadLibrary :: proc {
     loadLibraryA, loadLibraryW,
-    loadLibraryExA_nil_set, loadLibraryExA_nil_u32,
-    loadLibraryExW_nil_set, loadLibraryExW_nil_u32,
-    loadLibraryExA_handle_set, loadLibraryExA_handle_u32,
-    loadLibraryExW_handle_set, loadLibraryExW_handle_u32,
+    /* loadLibraryExA_nil_set, */ loadLibraryExA_nil_enum, loadLibraryExA_nil_u32,
+    /* loadLibraryExW_nil_set, */ loadLibraryExW_nil_enum, loadLibraryExW_nil_u32,
+    /* loadLibraryExA_handle_set, */ loadLibraryExA_handle_enum, loadLibraryExA_handle_u32,
+    /* loadLibraryExW_handle_set, */ loadLibraryExW_handle_enum, loadLibraryExW_handle_u32,
 };
 
 // -----------------------------------------------------------------------------------
@@ -295,38 +308,50 @@ getModuleHandleW     :: proc(moduleName : WString) -> HModule do return wGetModu
 
 // -----------------------------------------------------------------------------------
 
-loadLibraryA :: proc(libFilename : cstring) -> HModule {
-    return wLoadLibraryA(libFilename);
+loadLibraryA :: proc(libraryName : cstring) -> HModule {
+    return wLoadLibraryA(libraryName);
 }
 
-loadLibraryExA_nil_set :: proc(libFilename : cstring, flags : LoadLibrarySet) -> HModule {
-    return wLoadLibraryExA(libFilename, nil, LoadLibrarySet_to_u32(flags));
+// loadLibraryExA_nil_set :: proc(libraryName : cstring, flags : LoadLibrarySet) -> HModule {
+//     return wLoadLibraryExA(libraryName, nil, LoadLibrarySet_to_u32(flags));
+// }
+loadLibraryExA_nil_enum :: proc(libraryName : cstring, flags : LoadLibrary) -> HModule {
+    return wLoadLibraryExA(libraryName, nil, cast(u32) flags);
 }
-loadLibraryExA_nil_u32 :: proc(libFilename : cstring, flags : DWord) -> HModule {
-    return wLoadLibraryExA(libFilename, nil, flags);
+loadLibraryExA_nil_u32 :: proc(libraryName : cstring, flags : DWord) -> HModule {
+    return wLoadLibraryExA(libraryName, nil, flags);
 }
-loadLibraryExA_handle_set :: proc(libFilename : cstring, file : Handle, flags : LoadLibrarySet) -> HModule {
-    return wLoadLibraryExA(libFilename, file, LoadLibrarySet_to_u32(flags));
+// loadLibraryExA_handle_set :: proc(libraryName : cstring, file : Handle, flags : LoadLibrarySet) -> HModule {
+//     return wLoadLibraryExA(libraryName, file, LoadLibrarySet_to_u32(flags));
+// }
+loadLibraryExA_handle_enum :: proc(libraryName : cstring, file : Handle, flags : LoadLibrary) -> HModule {
+    return wLoadLibraryExA(libraryName, file, cast(u32) flags);
 }
-loadLibraryExA_handle_u32 :: proc(libFilename : cstring, file : Handle, flags : DWord) -> HModule  {
-    return wLoadLibraryExA(libFilename, file, flags);
+loadLibraryExA_handle_u32 :: proc(libraryName : cstring, file : Handle, flags : DWord) -> HModule {
+    return wLoadLibraryExA(libraryName, file, flags);
 }
 
-loadLibraryW :: proc(libFilename : WString) -> HModule {
-    return wLoadLibraryW(libFilename);
+loadLibraryW :: proc(libraryName : WString) -> HModule {
+    return wLoadLibraryW(libraryName);
 }
 
-loadLibraryExW_nil_set :: proc(libFilename : WString, flags : LoadLibrarySet) -> HModule {
-    return wLoadLibraryExW(libFilename, nil, LoadLibrarySet_to_u32(flags));
+// loadLibraryExW_nil_set :: proc(libraryName : WString, flags : LoadLibrarySet) -> HModule {
+//     return wLoadLibraryExW(libraryName, nil, LoadLibrarySet_to_u32(flags));
+// }
+loadLibraryExW_nil_enum :: proc(libraryName : WString, flags : LoadLibrary) -> HModule {
+    return wLoadLibraryExW(libraryName, nil, cast(u32) flags);
 }
-loadLibraryExW_nil_u32    :: proc(libFilename : WString, flags : DWord) -> HModule {
-    return wLoadLibraryExW(libFilename, nil, flags);
+loadLibraryExW_nil_u32  :: proc(libraryName : WString, flags : DWord) -> HModule {
+    return wLoadLibraryExW(libraryName, nil, flags);
 }
-loadLibraryExW_handle_set :: proc(libFilename : WString, file : Handle, flags : LoadLibrarySet) -> HModule {
-    return wLoadLibraryExW(libFilename, file, LoadLibrarySet_to_u32(flags));
+// loadLibraryExW_handle_set :: proc(libraryName : WString, file : Handle, flags : LoadLibrarySet) -> HModule {
+//     return wLoadLibraryExW(libraryName, file, LoadLibrarySet_to_u32(flags));
+// }
+loadLibraryExW_handle_enum :: proc(libraryName : WString, file : Handle, flags : LoadLibrary) -> HModule {
+    return wLoadLibraryExW(libraryName, file, cast(u32) flags);
 }
-loadLibraryExW_handle_u32 :: proc(libFilename : WString, file : Handle, flags : DWord) -> HModule {
-    return wLoadLibraryExW(libFilename, file, flags);
+loadLibraryExW_handle_u32  :: proc(libraryName : WString, file : Handle, flags : DWord) -> HModule {
+    return wLoadLibraryExW(libraryName, file, flags);
 }
 
 // -----------------------------------------------------------------------------------
@@ -334,22 +359,36 @@ loadLibraryExW_handle_u32 :: proc(libFilename : WString, file : Handle, flags : 
 outputDebugStringA :: proc(message : cstring) do wOutputDebugStringA(message);
 outputDebugStringW :: proc(message : WString) do wOutputDebugStringW(message);
 
-// ------------------------------------------------Type-----------------------------------
+// -----------------------------------------------------------------------------------
 
-virtualAlloc_set :: proc(address : rawptr, size : uint, allocType : MemoryAllocSet, protection : MemoryProtectionSet) -> rawptr {
-    return wVirtualAlloc(address, size, MemoryAllocSet_to_u32(allocType), MemoryProtectionSet_to_u32(protection));
+queryPerfomanceCounter :: proc() -> (success : Bool, counter : LargeInteger) {
+    success = wQueryPerfomanceCounter(&counter); return;
 }
 
+queryPerfomanceFrequency :: proc() -> (success : Bool, frequency : LargeInteger) {
+    success = wQueryPerfomanceFrequency(&frequency); return;
+}
+
+// -----------------------------------------------------------------------------------
+
+// virtualAlloc_set :: proc(address : rawptr, size : uint, allocType : MemoryAllocSet, protection : MemoryProtectionSet) -> rawptr {
+//     return wVirtualAlloc(address, size, MemoryAllocSet_to_u32(allocType), MemoryProtectionSet_to_u32(protection));
+// }
+virtualAlloc_enum :: proc(address : rawptr, size : uint, allocType : MemoryAlloc, protection : MemoryProtection) -> rawptr {
+    return wVirtualAlloc(address, size, cast(u32) allocType, cast(u32) protection);
+}
 virtualAlloc_u32 :: proc(address : rawptr, size : uint, allocType : DWord, protection : DWord) -> rawptr {
     return wVirtualAlloc(address, size, allocType, protection);
 }
 
 // -----------------------------------------------------------------------------------
 
-virtualFree_set :: proc(address : rawptr, size : uint, freeType : MemoryFreeSet) -> Bool {
-    return wVirtualFree(address, size, MemoryFreeSet_to_u32(freeType));
+// virtualFree_set :: proc(address : rawptr, size : uint, freeType : MemoryFreeSet) -> Bool {
+//     return wVirtualFree(address, size, MemoryFreeSet_to_u32(freeType));
+// }
+virtualFree_enum :: proc(address : rawptr, size : uint, freeType : MemoryFree) -> Bool {
+    return wVirtualFree(address, size, cast(u32) freeType);
 }
-
 virtualFree_u32 :: proc(address : rawptr, size : uint, freeType : DWord) -> Bool {
     return wVirtualFree(address, size, freeType);
 }
@@ -363,19 +402,22 @@ foreign kernel32 {
     // @(link_name="FormatMessageA")     wFormatMessageA     :: proc(flags : DWord, source : rawptr, messageId : DWord, languageId : DWord, buffer : cstring, size : u32, args : rawptr) -> DWord ---;
     // @(link_name="FormatMessageW")     wFormatMessageW     :: proc(flags : DWord, source : rawptr, messageId : DWord, languageId : DWord, buffer : WString, size : u32, args : rawptr) -> DWord ---;
 
-    @(link_name="GetLastError")       wGetLastError       :: proc() -> DWord ---;
-    @(link_name="GetModuleHandleA")   wGetModuleHandleA   :: proc(moduleName : cstring) -> HModule ---;
-    @(link_name="GetModuleHandleW")   wGetModuleHandleW   :: proc(moduleName : WString) -> HModule ---;
-    @(link_name="GetProcAddress")     wGetProcAddress     :: proc(module : HModule, procName : cstring) -> rawptr ---;
+    @(link_name="GetLastError")              wGetLastError             :: proc() -> DWord ---;
+    @(link_name="GetModuleHandleA")          wGetModuleHandleA         :: proc(moduleName : cstring) -> HModule ---;
+    @(link_name="GetModuleHandleW")          wGetModuleHandleW         :: proc(moduleName : WString) -> HModule ---;
+    @(link_name="GetProcAddress")            wGetProcAddress           :: proc(module : HModule, procName : cstring) -> rawptr ---;
 
-    @(link_name="LoadLibraryA")       wLoadLibraryA       :: proc(libFilename : cstring) -> HModule ---;
-    @(link_name="LoadLibraryW")       wLoadLibraryW       :: proc(libFilename : WString) -> HModule ---;
-    @(link_name="LoadLibraryExA")     wLoadLibraryExA     :: proc(libFilename : cstring, file : Handle, flags : DWord) -> HModule ---;
-    @(link_name="LoadLibraryExW")     wLoadLibraryExW     :: proc(libFilename : WString, file : Handle, flags : DWord) -> HModule ---;
+    @(link_name="LoadLibraryA")              wLoadLibraryA             :: proc(libraryName : cstring) -> HModule ---;
+    @(link_name="LoadLibraryW")              wLoadLibraryW             :: proc(libraryName : WString) -> HModule ---;
+    @(link_name="LoadLibraryExA")            wLoadLibraryExA           :: proc(libraryName : cstring, file : Handle, flags : DWord) -> HModule ---;
+    @(link_name="LoadLibraryExW")            wLoadLibraryExW           :: proc(libraryName : WString, file : Handle, flags : DWord) -> HModule ---;
 
-    @(link_name="OutputDebugStringA") wOutputDebugStringA :: proc(message : cstring) ---;
-    @(link_name="OutputDebugStringW") wOutputDebugStringW :: proc(message : WString) ---;
+    @(link_name="OutputDebugStringA")        wOutputDebugStringA       :: proc(message : cstring) ---;
+    @(link_name="OutputDebugStringW")        wOutputDebugStringW       :: proc(message : WString) ---;
 
-    @(link_name="VirtualAlloc")       wVirtualAlloc       :: proc(address : rawptr, size : uint, allocType : DWord, protection : DWord) -> rawptr ---;
-    @(link_name="VirtualFree")        wVirtualFree        :: proc(address : rawptr, size : uint, freeType : DWord) -> Bool ---;
+    @(link_name="QueryPerformanceCounter")   wQueryPerfomanceCounter   :: proc(counter   : ^LargeInteger) -> Bool ---;
+    @(link_name="QueryPerformanceFrequency") wQueryPerfomanceFrequency :: proc(frequency : ^LargeInteger) -> Bool ---;
+
+    @(link_name="VirtualAlloc")              wVirtualAlloc             :: proc(address : rawptr, size : uint, allocType : DWord, protection : DWord) -> rawptr ---;
+    @(link_name="VirtualFree")               wVirtualFree              :: proc(address : rawptr, size : uint, freeType : DWord) -> Bool ---;
 }

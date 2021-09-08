@@ -1,7 +1,7 @@
 package xinput;
 
 import "core:fmt";
-import "core:strings";
+import "core:log";
 import "externals:winapi";
 
 // -----------------------------------------------------------------------------------
@@ -45,47 +45,47 @@ Button :: enum u16 {
     Y         = 0x8000,  // 1 << 15
 }
 
-ButtonFlags :: enum u16 {
-    DPadUp,
-    DPadDown,
-    DPadLeft,
-    DPadRight,
-    Start,
-    Back,
-    ThumbL,
-    ThumbR,
-    ShoulderL,
-    ShoulderR,
-    A,
-    B,
-    X,
-    Y,
-}
+// ButtonFlags :: enum u16 {
+//     DPadUp,
+//     DPadDown,
+//     DPadLeft,
+//     DPadRight,
+//     Start,
+//     Back,
+//     ThumbL,
+//     ThumbR,
+//     ShoulderL,
+//     ShoulderR,
+//     A,
+//     B,
+//     X,
+//     Y,
+// }
 
-ButtonSet :: bit_set[ButtonFlags; u16];
+// ButtonSet :: bit_set[ButtonFlags; u16];
 
-ButtonSet_to_u16 :: proc(set : ButtonSet) -> (ret : u16) {
-    set := set;
-    @static flagToBit := [ButtonFlags]u16{
-        .DPadUp    = cast(u16) (Button.DPadUp),
-        .DPadDown  = cast(u16) (Button.DPadDown),
-        .DPadLeft  = cast(u16) (Button.DPadLeft),
-        .DPadRight = cast(u16) (Button.DPadRight),
-        .Start     = cast(u16) (Button.Start),
-        .Back      = cast(u16) (Button.Back),
-        .ThumbL    = cast(u16) (Button.ThumbL),
-        .ThumbR    = cast(u16) (Button.ThumbR),
-        .ShoulderL = cast(u16) (Button.ShoulderL),
-        .ShoulderR = cast(u16) (Button.ShoulderR),
-        .A         = cast(u16) (Button.A),
-        .B         = cast(u16) (Button.B),
-        .X         = cast(u16) (Button.X),
-        .Y         = cast(u16) (Button.Y),
-    };
+// ButtonSet_to_u16 :: proc(set : ButtonSet) -> (ret : u16) {
+//     set := set;
+//     static flagToBit := [ButtonFlags]u16{
+//         .DPadUp    = cast(u16) (Button.DPadUp),
+//         .DPadDown  = cast(u16) (Button.DPadDown),
+//         .DPadLeft  = cast(u16) (Button.DPadLeft),
+//         .DPadRight = cast(u16) (Button.DPadRight),
+//         .Start     = cast(u16) (Button.Start),
+//         .Back      = cast(u16) (Button.Back),
+//         .ThumbL    = cast(u16) (Button.ThumbL),
+//         .ThumbR    = cast(u16) (Button.ThumbR),
+//         .ShoulderL = cast(u16) (Button.ShoulderL),
+//         .ShoulderR = cast(u16) (Button.ShoulderR),
+//         .A         = cast(u16) (Button.A),
+//         .B         = cast(u16) (Button.B),
+//         .X         = cast(u16) (Button.X),
+//         .Y         = cast(u16) (Button.Y),
+//     };
 
-    ret = winapi.bitset_to_integral(set, flagToBit);
-    return ret;
-}
+//     ret = winapi.bitset_to_integral(set, flagToBit);
+//     return ret;
+// }
 
 // -----------------------------------------------------------------------------------
 // Structs
@@ -158,24 +158,24 @@ gamepadButtonPressed :: #force_inline proc(using gamepad : Gamepad, button : But
 // @Todo(Daniel): Change these to context.logger
 
 @(private)
-xinputLog :: #force_inline proc(errString : string, args : ..any) {
-    str := fmt.tprintf(errString, ..args);
-    consolePrint("[XInput]: {}\n", str);
+xinputLog :: #force_inline proc(fmtString : string, args : ..any) {
+    str := fmt.tprintf(fmtString, ..args);
+    log.infof("[XInput]: {}\n", str);
 }
 
 @(private)
-xinputError :: #force_inline proc(errString : string, args : ..any) {
-    str := fmt.tprintf(errString, ..args);
-    consolePrint("[XInput] Error: {}\n", str);
+xinputError :: #force_inline proc(fmtString : string, args : ..any) {
+    str := fmt.tprintf(fmtString, ..args);
+    log.errorf("[XInput] Error: {}\n", str);
 }
 
-@(private)
-consolePrint :: #force_inline proc(formatString : string, args : ..any) {
-    fmt.printf(formatString, ..args);
-    winapi.outputDebugString(debugCString(formatString, ..args));
+// @(private)
+// consolePrint :: #force_inline proc(formatString : string, args : ..any) {
+//     fmt.printf(formatString, ..args);
+//     winapi.outputDebugString(debugCString(formatString, ..args));
 
-    debugCString :: #force_inline proc(formatString : string, args : ..any) -> cstring {
-        debugStr  := fmt.tprintf(formatString, ..args);
-        return strings.clone_to_cstring(debugStr, context.temp_allocator);
-    }
-}
+//     debugCString :: #force_inline proc(formatString : string, args : ..any) -> cstring {
+//         debugStr  := fmt.tprintf(formatString, ..args);
+//         return strings.clone_to_cstring(debugStr, context.temp_allocator);
+//     }
+// }
