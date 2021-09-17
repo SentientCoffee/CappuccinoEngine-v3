@@ -20,17 +20,17 @@ win32_SoundOutput :: struct {
     samplesPerSecond, bytesPerSample : uint,
     bufferSize : u32,
 
-    frequency, volume  : f32,
-    wavePeriod, tSine  : f32,
-    latencySampleCount : f32,
-
+    frequency, volume : f32,
+    wavePeriod        : f32,
+    
+    latencySampleCount : uint,
     runningSampleIndex : uint,
-    isPlaying          : bool,
+    isPlaying, isValid : bool,
 }
 
+g_isRunning   := false;
 g_backbuffer  := win32_BitmapBuffer{ bytesPerPixel = 4 };
 g_soundBuffer : ^directsound.Buffer;
-g_isRunning   := false;
 
 win32Main :: proc() {
     using winapi;
@@ -91,24 +91,24 @@ win32Main :: proc() {
 
     deviceContext := getDc(window);
 
-    sps, bps : uint = 48_000, size_of(i16) * 2;  // 48,000 samples/s, 2-channel 16-bit audio
+    sps, bps : uint = 48_000, size_of(i16) * 2;  // 48,000 samples/s, 2-channel 16-bit audio (4 bytes per sample)
     f : f32 = 261.63;  // @Note(Daniel): Middle C frequency is 261.625565 Hz
 
     sound : win32_SoundOutput = {
         samplesPerSecond   = sps,
         bytesPerSample     = bps,
-        bufferSize         = cast(u32) (sps * bps),
+        bufferSize         = cast(u32) (sps * bps * 4),
         frequency          = f,
-        volume             = 1000.0,
+        volume             = 3000.0,
         wavePeriod         = cast(f32) sps / f,
-        tSine              = 0,
-        latencySampleCount = cast(f32) sps / 15.0,
+        latencySampleCount = sps / 15,
         runningSampleIndex = 0,
         isPlaying          = false,
+        isValid            = false,
     };
 
     g_soundBuffer = directSoundLoad(window, sound.samplesPerSecond, sound.bufferSize);
-    fillSoundBuffer(&sound, 0, cast(u32) sound.latencySampleCount * cast(u32) sound.bytesPerSample);
+    clearSoundBuffer(&sound);
     directsound.playBuffer(g_soundBuffer, 0, directsound.BufferPlay.Looping);
     sound.isPlaying = true;
 
@@ -145,25 +145,39 @@ win32Main :: proc() {
             sound.wavePeriod = cast(f32) sps / f;
         }
 
-        b := BitmapBuffer {
+        byteToLock, targetCursor, bytesToWrite : u32;
+        if posSuccess, playCursor, _/* writeCursor */ := directsound.getCurrentBufferPosition(g_soundBuffer); posSuccess != .Ok {
+            logError("DirectSound", "getCurrentBufferPosition (success == {})", posSuccess);
+        }
+        else {
+            using sound;
+            byteToLock   = (cast(u32) (runningSampleIndex * bytesPerSample)) % bufferSize;
+            targetCursor = (playCursor + cast(u32) (latencySampleCount * bytesPerSample)) % bufferSize;
+            bytesToWrite = bufferSize - byteToLock + targetCursor if byteToLock >= targetCursor else targetCursor - byteToLock;
+            isValid = true;
+        }
+        if sound.isValid do fillSoundBuffer_(&sound, byteToLock, bytesToWrite);
+
+        soundOut : [48_000 * 2]i16;
+        count := cast(uint) bytesToWrite / sound.bytesPerSample;
+        s := SoundBuffer {
+            samplesPerSecond = sound.samplesPerSecond,
+            sampleCount = count,
+            sampleOut = soundOut[:count * 2],
+            volume = sound.volume,
+        };
+
+        b := GraphicsBuffer {
             memory = g_backbuffer.memory,
             width = g_backbuffer.width,
             height = g_backbuffer.height,
             pitch = g_backbuffer.pitch,
             bytesPerPixel = g_backbuffer.bytesPerPixel,
         };
-        gameUpdateAndRender(&b, xOffset, yOffset);
 
-        if posSuccess, playCursor, _/* writeCursor */ := directsound.getCurrentBufferPosition(g_soundBuffer); posSuccess != .Ok {
-            logError("DirectSound", "getCurrentBufferPosition (success == {})", posSuccess);
-        }
-        else {
-            using sound;
-            byteToLock   := (cast(u32) (runningSampleIndex * bytesPerSample)) % bufferSize;
-            targetCursor := (playCursor + cast(u32) (latencySampleCount * cast(f32) bytesPerSample)) % bufferSize;
-            bytesToWrite := bufferSize - byteToLock + targetCursor if byteToLock >= targetCursor else targetCursor - byteToLock;
-            fillSoundBuffer(&sound, byteToLock, bytesToWrite);
-        }
+        gameUpdateAndRender(&b, xOffset, yOffset, &s, sound.frequency);
+
+        // if sound.isValid do fillSoundBuffer(&sound, &s, byteToLock, bytesToWrite);
 
         width, height := getWindowDimensions(window);
         copyBufferToWindow(&g_backbuffer, deviceContext, width, height);
@@ -372,12 +386,60 @@ directSoundLoad :: proc(window : winapi.HWnd, samplesPerSecond : uint, bufferSiz
     return buffer;
 }
 
-fillSoundBuffer :: proc(using sound : ^win32_SoundOutput, byteToLock, bytesToWrite : u32) {
+fillSoundBuffer :: proc(using dest : ^win32_SoundOutput, source : ^SoundBuffer, byteToLock, bytesToWrite : u32) {
     lockSuccess, region1, region1Size, region2, region2Size := directsound.lockBuffer(g_soundBuffer, byteToLock, bytesToWrite);
     if lockSuccess != .Ok {
         logError("DirectSound", "lockBuffer (success == {})", lockSuccess);
         return;
     }
+
+    sourceIndex := 0;
+    destOut := mem.slice_ptr(cast(^i16) region1, cast(int) region1Size);
+    sampleCount := region1Size / cast(u32) bytesPerSample;
+
+    // logInfo("Sound", "source: {}", source.sampleOut);
+    // logInfo("Sound", "source size: {}", bytesToWrite / cast(u32) bytesPerSample);
+
+    for i in 0 ..< sampleCount {
+        destIndex := i * 2;
+
+        destOut[destIndex    ] = source.sampleOut[sourceIndex    ];
+        destOut[destIndex + 1] = source.sampleOut[sourceIndex + 1];
+
+        runningSampleIndex += 1;
+        sourceIndex += 2;
+    }
+
+    // logDebug("Sound", "dest1 : {}", destOut);
+    // logDebug("Sound", "dest1 size: {}", sampleCount);
+
+    destOut = mem.slice_ptr(cast(^i16) region2, cast(int) region2Size);
+    sampleCount = region2Size / cast(u32) bytesPerSample;
+
+    for i in 0 ..< sampleCount {
+        destIndex := i * 2;
+
+        destOut[destIndex    ] = source.sampleOut[sourceIndex    ];
+        destOut[destIndex + 1] = source.sampleOut[sourceIndex + 1];
+
+        runningSampleIndex += 1;
+        sourceIndex += 2;
+    }
+
+    // logWarning("Sound", "dest2 : {}", destOut);
+    // logWarning("Sound", "dest2 size: {}", sampleCount);
+
+    directsound.unlockBuffer(g_soundBuffer, region1, region1Size, region2, region2Size);
+}
+
+fillSoundBuffer_ :: proc(using sound : ^win32_SoundOutput, byteToLock, bytesToWrite : u32) {
+    lockSuccess, region1, region1Size, region2, region2Size := directsound.lockBuffer(g_soundBuffer, byteToLock, bytesToWrite);
+    if lockSuccess != .Ok {
+        logError("DirectSound", "lockBuffer (success == {})", lockSuccess);
+        return;
+    }
+
+    @static tSine : f32 = 0;
 
     sampleOut := mem.slice_ptr(cast(^i16) region1, cast(int) region1Size);
     sampleCount := region1Size / cast(u32) bytesPerSample;
@@ -407,6 +469,26 @@ fillSoundBuffer :: proc(using sound : ^win32_SoundOutput, byteToLock, bytesToWri
 
         tSine += 2.0 * math.PI * (cast(f32) 1.0 / wavePeriod);
         runningSampleIndex += 1;
+    }
+
+    directsound.unlockBuffer(g_soundBuffer, region1, region1Size, region2, region2Size);
+}
+
+clearSoundBuffer :: proc(using sound : ^win32_SoundOutput) {
+    lockSuccess, region1, region1Size, region2, region2Size := directsound.lockBuffer(g_soundBuffer, 0, sound.bufferSize);
+    if lockSuccess != .Ok {
+        logError("DirectSound", "lockBuffer (success == {})", lockSuccess);
+        return;
+    }
+
+    destOut := mem.byte_slice(region1, cast(int) region1Size);
+    for i in 0 ..< region1Size {
+        destOut[i] = 0;
+    }
+
+    destOut = mem.byte_slice(region2, cast(int) region2Size);
+    for i in 0 ..< region2Size {
+        destOut[i] = 0;
     }
 
     directsound.unlockBuffer(g_soundBuffer, region1, region1Size, region2, region2Size);

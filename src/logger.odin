@@ -1,6 +1,7 @@
 package src;
 
 import "core:fmt";
+import "core:intrinsics";
 import "core:log";
 import "core:runtime";
 import "core:strings";
@@ -54,9 +55,20 @@ logInfo :: #force_inline proc(ident : string, fmtString : string, args : ..any) 
     log.logf(Info,"[{}]: {}\n", ident, str);
 }
 
+logWarning :: #force_inline proc(ident : string, fmtString : string, args : ..any) {
+    str := fmt.tprintf(fmtString, ..args);
+    log.logf(Warning, "[{}]: {}\n", ident, str);
+}
+
 logError :: #force_inline proc(ident : string, fmtString : string, args : ..any) {
     str := fmt.tprintf(fmtString, ..args);
     log.logf(Error, "{} fail! {}\n", ident, str);
+}
+
+logFatal :: #force_inline proc(ident : string, fmtString : string, args : ..any) {
+    str := fmt.tprintf(fmtString, ..args);
+    log.logf(Fatal, "FATAL {} fail! {}\n", ident, str);
+    when ODIN_DEBUG do intrinsics.debug_trap() else do intrinsics.trap();
 }
 
 // -----------------------------------------------------------------------------------
