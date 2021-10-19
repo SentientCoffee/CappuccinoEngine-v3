@@ -125,7 +125,6 @@ win32Main :: proc() {
         messageLoop : for true {
             success, msg := peekMessage(nil, 0, 0, PeekMessage.Remove);
             if !success do break messageLoop;
-            if msg.message == .Quit do g_isRunning = false;
 
             translateMessage(&msg);
             dispatchMessage(&msg);
@@ -211,6 +210,10 @@ mainWindowProc :: proc(window : winapi.HWnd, message : winapi.WindowMessage, wPa
             logDebug("WindowMessage", "{}", message);
 
         case .Destroy:
+            g_isRunning = false;
+            logDebug("WindowMessage", "{}", message);
+
+        case .Quit:
             g_isRunning = false;
             logDebug("WindowMessage", "{}", message);
 
