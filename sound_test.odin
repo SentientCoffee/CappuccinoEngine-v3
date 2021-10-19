@@ -19,10 +19,11 @@ win32_SoundOutput :: struct {
 
     frequency, volume : f32,
     wavePeriod        : f32,
-    
+    tSine             : f32,
+
     latencySampleCount : uint,
     runningSampleIndex : uint,
-    isPlaying, isValid : bool,
+    isValid            : bool,
 }
 
 SoundBuffer :: struct {
@@ -90,17 +91,16 @@ main :: proc() {
         bufferSize         = cast(u32) (sps * bps * 4),
         frequency          = f,
         volume             = 3000.0,
+        tSine              = 0.0,
         wavePeriod         = cast(f32) sps / f,
         latencySampleCount = sps / 15,
         runningSampleIndex = 0,
-        isPlaying          = false,
         isValid            = false,
     };
 
     g_soundBuffer = directSoundLoad(window, sound.samplesPerSecond, sound.bufferSize);
     clearSoundBuffer(&sound);
     directsound.playBuffer(g_soundBuffer, 0, directsound.BufferPlay.Looping);
-    sound.isPlaying = true;
 
     g_isRunning = true;
 
@@ -128,8 +128,10 @@ main :: proc() {
             bytesToWrite = bufferSize - byteToLock + targetCursor if byteToLock >= targetCursor else targetCursor - byteToLock;
             isValid = true;
         }
+
         if sound.isValid do fillSoundBuffer_(&sound, byteToLock, bytesToWrite);
-    
+        else do src.logError("Sound", "Invalid sound!");
+
         // soundOut : [48_000 * 2]i16;
         // count := cast(uint) bytesToWrite / sound.bytesPerSample;
         // s := SoundBuffer {
@@ -138,7 +140,7 @@ main :: proc() {
         //     sampleOut = soundOut[:count * 2],
         //     volume = sound.volume,
         // };
-    
+
         // if sound.isValid do fillSoundBuffer(&sound, &s, byteToLock, bytesToWrite);
     }
 
@@ -276,36 +278,63 @@ fillSoundBuffer_ :: proc(using sound : ^win32_SoundOutput, byteToLock, bytesToWr
         return;
     }
 
-    @static tSine : f32 = 0;
+    // sampleOut := mem.slice_ptr(cast(^i16) region1, cast(int) region1Size);
+    // sampleCount := region1Size / cast(u32) bytesPerSample;
+    // for i in 0 ..< sampleCount {
+    //     index := i * 2;
 
-    sampleOut := mem.slice_ptr(cast(^i16) region1, cast(int) region1Size);
+    //     sineValue := math.sin(tSine);
+    //     sampleValue := cast(i16) (sineValue * volume);
+
+    //     sampleOut[index    ] = sampleValue;
+    //     sampleOut[index + 1] = sampleValue;
+
+    //     tSine += 2.0 * math.PI * (cast(f32) 1.0 / wavePeriod);
+    //     runningSampleIndex += 1;
+    // }
+
+    // sampleOut = mem.slice_ptr(cast(^i16) region2, cast(int) region2Size);
+    // sampleCount = region2Size / cast(u32) bytesPerSample;
+    // for i in 0 ..< sampleCount {
+    //     index := i * 2;
+
+    //     sineValue := math.sin(tSine);
+    //     sampleValue := cast(i16) (sineValue * volume);
+
+    //     sampleOut[index    ] = sampleValue;
+    //     sampleOut[index + 1] = sampleValue;
+
+    //     tSine += 2.0 * math.PI * (cast(f32) 1.0 / wavePeriod);
+    //     runningSampleIndex += 1;
+    // }
+
+    sampleOut   := cast(^i16) region1;
     sampleCount := region1Size / cast(u32) bytesPerSample;
-    for i in 0 ..< sampleCount {
-        index := i * 2;
-
+    for _ in 0 ..< sampleCount {
         sineValue := math.sin(tSine);
         sampleValue := cast(i16) (sineValue * volume);
 
-        sampleOut[index    ] = sampleValue;
-        sampleOut[index + 1] = sampleValue;
+        sampleOut^ = sampleValue;
+        sampleOut  = mem.ptr_offset(sampleOut, 1);
+        sampleOut^ = sampleValue;
+        sampleOut  = mem.ptr_offset(sampleOut, 1);
 
         tSine += 2.0 * math.PI * (cast(f32) 1.0 / wavePeriod);
         runningSampleIndex += 1;
     }
 
-    sampleOut = mem.slice_ptr(cast(^i16) region2, cast(int) region2Size);
+    sampleOut   = cast(^i16) region2;
     sampleCount = region2Size / cast(u32) bytesPerSample;
-    for i in 0 ..< sampleCount {
-        index := i * 2;
-
+    for _ in 0 ..< sampleCount {
         sineValue := math.sin(tSine);
         sampleValue := cast(i16) (sineValue * volume);
 
-        sampleOut[index    ] = sampleValue;
-        sampleOut[index + 1] = sampleValue;
+        sampleOut^ = sampleValue;
+        sampleOut  = mem.ptr_offset(sampleOut, 1);
+        sampleOut^ = sampleValue;
+        sampleOut  = mem.ptr_offset(sampleOut, 1);
 
         tSine += 2.0 * math.PI * (cast(f32) 1.0 / wavePeriod);
-        src.logDebug("fillSoundBuffer", "Wave period == {}", wavePeriod);
         runningSampleIndex += 1;
     }
 
