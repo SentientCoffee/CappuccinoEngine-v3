@@ -4,5 +4,5 @@ import "src";
 
 main :: proc() {
     context = src.setupContext();
-    when ODIN_OS == "windows" do src.win32Main();
+    when ODIN_OS == .Windows do src.win32Main();
 }

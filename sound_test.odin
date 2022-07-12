@@ -37,12 +37,7 @@ main :: proc() {
     using winapi;
 
     context = setupContext();
-
     currentInstance := getModuleHandle();
-    if success := comInitialize(); success != 0 {
-        src.dumpLastError("ComInitialize");
-        return;
-    }
 
     windowClass : WndClassA;
     {
@@ -85,65 +80,74 @@ main :: proc() {
     sps, bps : uint = 48_000, size_of(i16) * 2;  // 48,000 samples/s, 2-channel 16-bit audio (4 bytes per sample)
     f : f32 = 261.63;  // @Note(Daniel): Middle C frequency is 261.625565 Hz
 
-    sound : win32_SoundOutput = {
-        samplesPerSecond   = sps,
-        bytesPerSample     = bps,
-        bufferSize         = cast(u32) (sps * bps * 4),
-        frequency          = f,
-        volume             = 3000.0,
-        tSine              = 0.0,
-        wavePeriod         = cast(f32) sps / f,
-        latencySampleCount = sps / 15,
-        runningSampleIndex = 0,
-        isValid            = false,
-    };
+    for _ in 0 ..< 2 {
+        sound : win32_SoundOutput = {
+            samplesPerSecond   = sps,
+            bytesPerSample     = bps,
+            bufferSize         = cast(u32) (sps * bps * 4),
+            frequency          = f,
+            volume             = 3000.0,
+            tSine              = 0.0,
+            wavePeriod         = cast(f32) sps / f,
+            latencySampleCount = sps / 15,
+            runningSampleIndex = 0,
+            isValid            = false,
+        };
 
-    g_soundBuffer = directSoundLoad(window, sound.samplesPerSecond, sound.bufferSize);
-    clearSoundBuffer(&sound);
-    directsound.playBuffer(g_soundBuffer, 0, directsound.BufferPlay.Looping);
+        g_soundBuffer = directSoundLoad(window, sound.samplesPerSecond, sound.bufferSize);
+        clearSoundBuffer(&sound);
+        directsound.playBuffer(g_soundBuffer, 0, directsound.BufferPlay.Looping);
 
-    g_isRunning = true;
+        g_isRunning = true;
 
-    for g_isRunning {
-        if err := mem.free_all(context.temp_allocator); err != .None {
-            src.logError("Temp_allocator", "free_all err == {}", err);
+        for g_isRunning {
+            if err := mem.free_all(context.temp_allocator); err != .None {
+                src.logError("Temp_allocator", "free_all err == {}", err);
+            }
+
+            messageLoop : for {
+                success, msg := peekMessage(nil, 0, 0, PeekMessage.Remove);
+                if !success do break messageLoop;
+
+                translateMessage(&msg);
+                dispatchMessage(&msg);
+            }
+
+            lockOffset, targetCursor, lockSize : u32;
+            if posSuccess, playCursor, writeCursor := directsound.getCurrentBufferPosition(g_soundBuffer); posSuccess != .Ok {
+                src.logError("DirectSound", "getCurrentBufferPosition (success == {})", posSuccess);
+            }
+            else {
+                using sound;
+                src.logTrace("Buffer Pos", "Play cursor = {}, Write cursor = {}", playCursor, writeCursor);
+
+                lockOffset   = (cast(u32) (runningSampleIndex * bytesPerSample)) % bufferSize;
+                targetCursor = (playCursor + cast(u32) (latencySampleCount * bytesPerSample)) % bufferSize;
+
+                if lockOffset > targetCursor {
+                    lockSize = bufferSize - lockOffset + targetCursor;
+                }
+                else {
+                    lockSize = targetCursor - lockOffset;
+                }
+                isValid = true;
+            }
+
+            if sound.isValid do fillSoundBuffer_(&sound, lockOffset, lockSize);
+            else do src.logError("Sound", "Invalid sound!");
+
+            // soundOut : [48_000 * 2]i16;
+            // count := cast(uint) lockSize / sound.bytesPerSample;
+            // s := SoundBuffer {
+            //     samplesPerSecond = sound.samplesPerSecond,
+            //     sampleCount = count,
+            //     sampleOut = soundOut[:count * 2],
+            //     volume = sound.volume,
+            // };
+
+            // if sound.isValid do fillSoundBuffer(&sound, &s, lockOffset, lockSize);
         }
-
-        messageLoop : for {
-            success, msg := peekMessage(nil, 0, 0, PeekMessage.Remove);
-            if !success do break messageLoop;
-
-            translateMessage(&msg);
-            dispatchMessage(&msg);
-        }
-
-        byteToLock, targetCursor, bytesToWrite : u32;
-        if posSuccess, playCursor, _/* writeCursor */ := directsound.getCurrentBufferPosition(g_soundBuffer); posSuccess != .Ok {
-            src.logError("DirectSound", "getCurrentBufferPosition (success == {})", posSuccess);
-        }
-        else {
-            using sound;
-            byteToLock   = (cast(u32) (runningSampleIndex * bytesPerSample)) % bufferSize;
-            targetCursor = (playCursor + cast(u32) (latencySampleCount * bytesPerSample)) % bufferSize;
-            bytesToWrite = bufferSize - byteToLock + targetCursor if byteToLock >= targetCursor else targetCursor - byteToLock;
-            isValid = true;
-        }
-
-        if sound.isValid do fillSoundBuffer_(&sound, byteToLock, bytesToWrite);
-        else do src.logError("Sound", "Invalid sound!");
-
-        // soundOut : [48_000 * 2]i16;
-        // count := cast(uint) bytesToWrite / sound.bytesPerSample;
-        // s := SoundBuffer {
-        //     samplesPerSecond = sound.samplesPerSecond,
-        //     sampleCount = count,
-        //     sampleOut = soundOut[:count * 2],
-        //     volume = sound.volume,
-        // };
-
-        // if sound.isValid do fillSoundBuffer(&sound, &s, byteToLock, bytesToWrite);
     }
-
 }
 
 setupContext :: proc() -> runtime.Context {
@@ -225,8 +229,8 @@ directSoundLoad :: proc(window : winapi.HWnd, samplesPerSecond : uint, bufferSiz
     return buffer;
 }
 
-// fillSoundBuffer :: proc(using dest : ^win32_SoundOutput, source : ^SoundBuffer, byteToLock, bytesToWrite : u32) {
-//     lockSuccess, region1, region1Size, region2, region2Size := directsound.lockBuffer(g_soundBuffer, byteToLock, bytesToWrite);
+// fillSoundBuffer :: proc(using dest : ^win32_SoundOutput, source : ^SoundBuffer, lockOffset, lockSize : u32) {
+//     lockSuccess, region1, region1Size, region2, region2Size := directsound.lockBuffer(g_soundBuffer, lockOffset, lockSize);
 //     if lockSuccess != .Ok {
 //         src.logError("DirectSound", "lockBuffer (success == {})", lockSuccess);
 //         return;
@@ -237,7 +241,7 @@ directSoundLoad :: proc(window : winapi.HWnd, samplesPerSecond : uint, bufferSiz
 //     sampleCount := region1Size / cast(u32) bytesPerSample;
 
 //     // src.logInfo("Sound", "source: {}", source.sampleOut);
-//     // src.logInfo("Sound", "source size: {}", bytesToWrite / cast(u32) bytesPerSample);
+//     // src.logInfo("Sound", "source size: {}", lockSize / cast(u32) bytesPerSample);
 
 //     for i in 0 ..< sampleCount {
 //         destIndex := i * 2;
@@ -271,10 +275,10 @@ directSoundLoad :: proc(window : winapi.HWnd, samplesPerSecond : uint, bufferSiz
 //     directsound.unlockBuffer(g_soundBuffer, region1, region1Size, region2, region2Size);
 // }
 
-fillSoundBuffer_ :: proc(using sound : ^win32_SoundOutput, byteToLock, bytesToWrite : u32) {
-    lockSuccess, region1, region1Size, region2, region2Size := directsound.lockBuffer(g_soundBuffer, byteToLock, bytesToWrite);
+fillSoundBuffer_ :: proc(using sound : ^win32_SoundOutput, lockOffset, lockSize : u32) {
+    lockSuccess, region1, region1Size, region2, region2Size := directsound.lockBuffer(g_soundBuffer, lockOffset, lockSize);
     if lockSuccess != .Ok {
-        src.logError("DirectSound", "lockBuffer (success == {})", lockSuccess);
+        src.logError("DirectSound", "lockBuffer (success == {}, lockOffset == {}, lockSize == {})", lockSuccess, lockOffset, lockSize);
         return;
     }
 
@@ -314,6 +318,8 @@ fillSoundBuffer_ :: proc(using sound : ^win32_SoundOutput, byteToLock, bytesToWr
         sineValue := math.sin(tSine);
         sampleValue := cast(i16) (sineValue * volume);
 
+        if sineValue * volume >= 65535 do src.logDebug("Sound", "sample value exceeding bounds! {} ({})", sineValue * volume, sampleValue);
+
         sampleOut^ = sampleValue;
         sampleOut  = mem.ptr_offset(sampleOut, 1);
         sampleOut^ = sampleValue;
@@ -329,6 +335,8 @@ fillSoundBuffer_ :: proc(using sound : ^win32_SoundOutput, byteToLock, bytesToWr
         sineValue := math.sin(tSine);
         sampleValue := cast(i16) (sineValue * volume);
 
+        if sineValue * volume >= 65535 do src.logDebug("Sound", "sample value exceeding bounds! {} ({})", sineValue * volume, sampleValue);
+
         sampleOut^ = sampleValue;
         sampleOut  = mem.ptr_offset(sampleOut, 1);
         sampleOut^ = sampleValue;
@@ -337,6 +345,8 @@ fillSoundBuffer_ :: proc(using sound : ^win32_SoundOutput, byteToLock, bytesToWr
         tSine += 2.0 * math.PI * (cast(f32) 1.0 / wavePeriod);
         runningSampleIndex += 1;
     }
+
+    src.logTrace("Fill Sound Buffer", "{}", runningSampleIndex);
 
     directsound.unlockBuffer(g_soundBuffer, region1, region1Size, region2, region2Size);
 }

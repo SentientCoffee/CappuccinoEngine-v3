@@ -168,7 +168,7 @@ BufferPlay :: enum u32 {
 // @(private="file")
 // BufferPlaySet_to_u32 :: #force_inline proc(set : BufferPlaySet) -> (ret : u32) {
 //     set := set;
-//     static flagToBit := [BufferPlayFlags]u32{
+//     @(static) flagToBit := [BufferPlayFlags]u32{
 //         .Looping             = cast(u32) (BufferPlay.Looping),
 //         .LocalHardware       = cast(u32) (BufferPlay.LocalHardware),
 //         .LocalSoftware       = cast(u32) (BufferPlay.LocalSoftware),
@@ -416,29 +416,29 @@ getCurrentBufferPosition :: #force_inline proc(buffer : ^Buffer) -> (
 
 // lockBuffer_set :: #force_inline proc(
 //     buffer : ^Buffer,
-//     writePointer, bytesToWrite : winapi.DWord,
+//     writePointer, writeSize : winapi.DWord,
 //     flags : BufferLockSet,
 // ) -> (
 //     err : Error,
 //     audioRegion1 : rawptr, region1Size : winapi.DWord,
 //     audioRegion2 : rawptr, region2Size : winapi.DWord,
 // ) {
-//     return lockBuffer_u32(buffer, writePointer, bytesToWrite, BufferLockSet_to_u32(flags));
+//     return lockBuffer_u32(buffer, writePointer, writeSize, BufferLockSet_to_u32(flags));
 // }
 lockBuffer_enum :: #force_inline proc(
     buffer : ^Buffer,
-    writePointer, bytesToWrite : winapi.DWord,
+    writePointer, writeSize : winapi.DWord,
     flags : BufferLock,
 ) -> (
     err : Error,
     audioRegion1 : rawptr, region1Size : winapi.DWord,
     audioRegion2 : rawptr, region2Size : winapi.DWord,
 ) {
-    return lockBuffer_u32(buffer, writePointer, bytesToWrite, cast(u32) flags);
+    return lockBuffer_u32(buffer, writePointer, writeSize, cast(u32) flags);
 }
 lockBuffer_u32 :: proc(
     buffer : ^Buffer,
-    writePointer, bytesToWrite : winapi.DWord,
+    writePointer, writeSize : winapi.DWord,
     flags : winapi.DWord = 0,
 ) -> (
     err : Error,
@@ -449,10 +449,10 @@ lockBuffer_u32 :: proc(
     region1Size,  region2Size  = 0, 0;
     err = .Uninitialized;
 
-    if(buffer == nil) do return;
+    if buffer == nil do return;
 
     e := buffer->lock(
-        writePointer, bytesToWrite,
+        writePointer, writeSize,
         &audioRegion1, &region1Size,
         &audioRegion2, &region2Size,
         flags,
